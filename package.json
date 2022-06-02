@@ -35,8 +35,8 @@
   "devDependencies": {
     "@ethersproject/cli": "5.5.0",
     "prettier": "2.6.1",
-    "ts-node": "10.7.0",
-    "typescript": "4.7.0-beta",
+    "ts-node": "10.8.0",
+    "typescript": "4.7.2",
     "wasm-opt": "1.3.0",
     "wasm-pack": "0.10.2",
     "yargs": "17.4.0"
