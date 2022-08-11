@@ -1,9 +1,9 @@
-import { Transaction, TransactionPayload } from "../transaction-manager/types.js"
+import { Transaction, TransactionPayload } from '../transaction-manager/types.js'
 
 // export type ActionsQueue {
 // }
 
-export type TransactionHash = string;
+export type TransactionHash = string
 
 // FIFO queue
 export type QueuingTransactionsQueue = Array<TransactionPayload>
@@ -13,8 +13,8 @@ export type QueuingTransactionsQueue = Array<TransactionPayload>
  * hash is the key
  * It contains pending transactions and confirmed transactions
  */
-export type BoardcastedTransactions = { 
-    [hash: TransactionHash]: Transaction
+export type BoardcastedTransactions = {
+  [hash: TransactionHash]: Transaction
 }
 
 /**
@@ -22,6 +22,6 @@ export type BoardcastedTransactions = {
  * It is possibe to associate two pending transactions with one nonce
  */
 export type BoardcastedTransactionsQueue = {
-    minNonce: string
-    [nonce: number]: Array<TransactionHash>
+  minNonce: string
+  [nonce: number]: Array<TransactionHash>
 }

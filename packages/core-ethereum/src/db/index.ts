@@ -1,5 +1,5 @@
-import { BasicDB } from "./basic-db.js";
-import { ICoreEthereumDB } from "./interfaces.js";
+import { BasicDB } from './basic-db.js'
+import { ICoreEthereumDB } from './interfaces.js'
 
 /**
  * DB specifically for core-ethreum pacakge. It extends the universal DB definiton

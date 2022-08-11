@@ -2,19 +2,18 @@ import { PriorityConfiguration, StatusTransacitons, Transaction, TransactionPayl
 import { TransactionHash } from "./types.js";
 
 /**
- * Interface of CoreEthereumDB 
+ * Interface of CoreEthereumDB
  */
 export interface ICoreEthereumDB {
-    // add a queuing tx into the db and returns the queuing index
-    addQueuingTransaction(txPayload: TransactionPayload): number
-    // return the size of the queuing transactions
-    getQueuingTransactionsSize(): number
-    // get the queuing transaction at index
-    getQueuingTransactionAtIndex(index: number): TransactionPayload
-    // pop the first queuing transaction
-    popFirstQueuingTransaction(): TransactionPayload
+  // add a queuing tx into the db and returns the queuing index
+  addQueuingTransaction(txPayload: TransactionPayload): number
+  // return the size of the queuing transactions
+  getQueuingTransactionsSize(): number
+  // get the queuing transaction at index
+  getQueuingTransactionAtIndex(index: number): TransactionPayload
+  // pop the first queuing transaction
+  popFirstQueuingTransaction(): TransactionPayload
 
-    
     /**
      * add a boardcasted transaction. This transaction should be defautl to pending
      * 
