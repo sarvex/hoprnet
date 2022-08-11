@@ -1,15 +1,16 @@
-import { type Address, HoprDB, PublicKey } from '@hoprnet/hopr-utils'
+import { type Address, PublicKey } from '@hoprnet/hopr-utils'
 import NonceTracker from '../nonce-tracker.js'
 import { Transaction, TransactionPayload, NonceTypeAtTransactionCreation, PriorityConfiguration } from './types.js'
 import type { Provider } from '@ethersproject/abstract-provider'
 import { UnsignedTransaction, utils } from 'ethers'
+import { CoreEthereumDB } from '../db/index.js'
 
 class TransactionManager {
   private fromAddress: Address
   private chainId: number
 
   constructor(
-    private db: HoprDB,
+    private db: CoreEthereumDB,
     private provider: Provider,
     private privateKey: Uint8Array,
     private nonceTracker: NonceTracker

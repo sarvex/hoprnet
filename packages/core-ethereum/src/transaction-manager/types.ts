@@ -15,7 +15,8 @@ export type PriorityConfiguration = {
 export enum StatusTransacitons {
   QUEUING,
   PENDING,
-  FINALIZED
+  FINALIZED,
+  REPLACED
 }
 
 export type Transaction = TransactionPayload &
