@@ -1,4 +1,4 @@
-import { PriorityConfiguration, Transaction, TransactionPayload } from "../transaction-manager/types.js";
+import { PriorityConfiguration, StatusTransacitons, Transaction, TransactionPayload } from "../transaction-manager/types.js";
 import { TransactionHash } from "./types.js";
 
 /**
@@ -15,12 +15,34 @@ export interface ICoreEthereumDB {
     popFirstQueuingTransaction(): TransactionPayload
 
     
-    // add a boardcasted transaction. This transaction should be defautl to pending
+    /**
+     * add a boardcasted transaction. This transaction should be defautl to pending
+     * 
+     * Note that this function is also called when updating a transaction's network priority condition 
+     * - a new entry in the Boardcasted transaction queue should be created. The old hash entry is not removed.
+     * Add the new hash associated with the nonce
+     * @param transaction 
+     */
     addBoardcastedTransaction(transaction: Transaction): void
+    
+    /**
+     * dedicated function for updating the priority config. See required actions
+     * in the `addBoardcastedTransaction` function.
+     */
+    updateTransactionPriorityConfig(prevHash: TransactionHash, priorityConfig: PriorityConfiguration): void
+    
     // return a transaction by its hash
     getBoardcastedTransactionByHash(hash: TransactionHash): Transaction
-    // remove a transaction by its hash
-    removeBoardcastedTransactionByHash(hash: TransactionHash): void
-    // overwrite a transaction's network priority condition. It removes the old hash and add a new hash entry. Update the hash associated with the nonce
-    updateTransactionPriorityConfig(prevHash: TransactionHash, priorityConfig: PriorityConfiguration): void
+    /*
+     * udpate a transaction by its hash. When multiple hashes are associated with one nonce. Only one
+     * transaction can be `FINALIZED` and all the rest should be `REPLACED`
+     * @param hash of the  transaction
+     * @param newStatus new status
+     */
+    updateBoardcastedTransactionStatusByHash(hash: TransactionHash, newStatus: StatusTransacitons): void
+
+    /**
+     * return an array of transactions based on the given transaction status
+     */
+     getBoardcastedTransactionsByStatus(status: StatusTransacitons): Array<Transaction>
 }
