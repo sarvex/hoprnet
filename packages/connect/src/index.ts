@@ -3,6 +3,7 @@ import type { PeerId } from '@libp2p/interface-peer-id'
 import type { Initializable, Components } from '@libp2p/interfaces/components'
 import type { Startable } from '@libp2p/interfaces/startable'
 import type { Connection, MultiaddrConnection } from '@libp2p/interface-connection'
+import { cleanExistingConnections } from './utils/index.js'
 
 import errCode from 'err-code'
 import Debug from 'debug'
@@ -286,6 +287,8 @@ class HoprConnect implements Transport, Initializable, Startable {
       throw err
     }
 
+    cleanExistingConnections(this.components as Components, conn.remotePeer, conn.id, error)
+
     // Merges all tags from `maConn` into `conn` and then make both objects
     // use the *same* array
     // This is necessary to dynamically change the connection tags once
@@ -320,6 +323,8 @@ class HoprConnect implements Transport, Initializable, Startable {
     )
 
     const conn = await timeout(DEFAULT_CONNECTION_UPGRADE_TIMEOUT, () => options.upgrader.upgradeOutbound(maConn))
+
+    cleanExistingConnections(this.components as Components, conn.remotePeer, conn.id, error)
 
     // Assign various connection properties once we're sure that public keys match,
     // i.e. dialed node == desired destination

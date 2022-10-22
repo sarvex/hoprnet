@@ -29,7 +29,7 @@ import {
   retimer
 } from '@hoprnet/hopr-utils'
 
-import { attemptClose } from '../utils/index.js'
+import { attemptClose, cleanExistingConnections } from '../utils/index.js'
 import { handshake } from 'it-handshake'
 
 const DEBUG_PREFIX = 'hopr-connect:relay'
@@ -437,6 +437,8 @@ class Relay implements Initializable, ConnectInitializable, Startable {
       return
     }
 
+    cleanExistingConnections(this.components as Components, upgradedConn.remotePeer, upgradedConn.id, error)
+
     // Merges all tags from `maConn` into `conn` and then make both objects
     // use the *same* array
     // This is necessary to dynamically change the connection tags once
@@ -489,18 +491,7 @@ class Relay implements Initializable, ConnectInitializable, Startable {
       .dialer._pendingDials?.get(counterparty.toString())
       ?.destroy()
 
-    const existingConnections = this.getComponents().getConnectionManager().getConnections(counterparty)
-    for (const existingConnection of existingConnections) {
-      if (existingConnection.id === newConn.id) {
-        continue
-      }
-      try {
-        await existingConnection.close()
-      } catch (err) {
-        error(`Error while closing dead connection`, err)
-      }
-    }
-
+    cleanExistingConnections(this.components as Components, newConn.remotePeer, newConn.id, error)
     metric_countRelayReconnects.increment()
   }
 }
