@@ -43,7 +43,8 @@
   "resolutions": {
     "@ethersproject/providers": "https://github.com/hoprnet/ethers-js-provider/archive/refs/tags/v5.7.0-fixed-memory-leak.tar.gz",
     "@overnightjs/logger": "1.2.1",
-    "colors": "1.4.0"
+    "colors": "1.4.0",
+    "@libp2p/kad-dht": "https://github.com/hoprnet/js-libp2p-kad-dht/archive/refs/tags/v1.0.17.tar.gz"
   },
   "prettier": {
     "tabWidth": 2,
