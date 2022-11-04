@@ -1,490 +1,493 @@
-name: HOPR Deploy
-
-env:
-  HOPR_GITHUB_REF: ${{ github.ref }}
-  MATRIX_ROOM: ${{ secrets.MATRIX_ROOM }}
-  MATRIX_CLUSTER_INFO_ROOM: ${{ secrets.MATRIX_CLUSTER_INFO_ROOM }}
-  MATRIX_SERVER: ${{ secrets.MATRIX_SERVER }}
-  MATRIX_ACCESS_TOKEN: ${{ secrets.MATRIX_ACCESS_TOKEN }}
-
-on:
-  push:
-    branches: ['integration/**', 'master', 'release/**', 'avado', 'debug-deploy/**']
-    paths-ignore:
-      - '.processes/**/*'
-      - 'docs/**/*'
-      - 'packages/*/docs/**/*'
-
-concurrency:
-  # limit invocations of this workflow to one at a time to prevent race
-  # conditions
-  group: deploy
-  # just canceling could lead to side-effects of incomplete runs, so let's just
-  # run through each invocation completely
+--- 
+concurrency: 
   cancel-in-progress: false
-
-jobs:
-  build_deploy_sc_npm:
-    name: Build / Deploy SCs / Publish NPM
-    strategy:
-      matrix:
-        node-version: [16]
-        os: ['ubuntu-latest']
-        rust: ['stable']
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: restore cargo cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: '[SETUP] Use Node.js'
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node-version }}
-          registry-url: https://registry.npmjs.org/
-          cache: yarn
-
-
-      - name: '[SETUP] Print additional information'
-        run: |
-          node --version
-          npm --version
-          yarn --version
-          rustc --version
-          cargo --version
-
-      - name: '[SETUP] Configure Git info'
-        run: ./scripts/configure-git-info.sh
-
-
-      - name: '[SETUP] Install Yarn (only when using ACT)'
-        if: ${{ env.ACT == 'true' }}
-        run: |
-          curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
-          echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
-          apt update
-          apt install --no-install-recommends yarn
-
-      - name: '[BUILD] Install dependencies / link / build'
-        run: |
-          # Deploying with hardhat requires built hopr-utils package
-          CI=true make -j deps
-          make -j build
-          
-      - name: 'Cache built artifacts (for later use)''
-        uses: actions/cache@v3
-        path: |
-            packages/
-          key: hoprnet-build-${{ github.run_id }}
-
-      - name: '[SMART-CONTRACTS] Deploy for known environments'
-        if: ${{ !env.ACT }}
-        run: ./scripts/deploy-smart-contracts.sh
-        env:
-          DEPLOYER_WALLET_PRIVATE_KEY: ${{ secrets.DEPLOYER_WALLET_PRIVATE_KEY }}
-          ETHERSCAN_KEY: ${{ secrets.ETHERSCAN }}
-          BLOCKSCOUT_KEY: ${{ secrets.BLOCKSCOUT }}
-
-      - name: '[SMART-CONTRACTS] Commit & push changes'
-        if: ${{ !env.ACT }}
-        run: |
-          make lint-fix
-          ./scripts/commit-and-push-all-changes.sh
-        env:
-          HOPR_GIT_MSG: 'chore(release): update smart contract deployments'
-
-      - name: '[NPM] Publish prerelease version (On pushes to master and debug-deploy/*)'
-        if: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/debug-deploy/') }}
-        run: ./scripts/publish-version.sh prerelease
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      # Pushing a PR to a release branch should increment the patch version in
-      # accordance with semver.
-      - name: '[NPM] Publish patch version (On pushes to release branches)'
-        if: ${{ startsWith(github.ref, 'refs/heads/release/') }}
-        run: ./scripts/publish-version.sh patch
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: '[NPM] Wait for packages to be accessible'
-        if: ${{ (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/debug-deploy/') || startsWith(github.ref, 'refs/heads/release/')) && !env.ACT }}
-        run: |
-          ./scripts/wait-for-npm-package.sh hoprd
-          ./scripts/wait-for-npm-package.sh core
-          ./scripts/wait-for-npm-package.sh core-ethereum
-          ./scripts/wait-for-npm-package.sh utils
-          ./scripts/wait-for-npm-package.sh ethereum
-          ./scripts/wait-for-npm-package.sh cover-traffic-daemon
-          ./scripts/wait-for-npm-package.sh connect
-
-      - name: '[FINISH] Send notification if anything failed on master or release branches'
-        if: ${{ failure() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')) && !env.ACT }}
-        run: |
-          ./scripts/notify-matrix-github-workflow-failure.sh "${MATRIX_ROOM}" "${{ github.repository }}" \
-            "${{ github.workflow }}" "${{ github.run_id }}"
-
-  github_release:
-    name: Create Github Release
+  group: deploy
+env: 
+  HOPR_GITHUB_REF: "${{ github.ref }}"
+  MATRIX_ACCESS_TOKEN: "${{ secrets.MATRIX_ACCESS_TOKEN }}"
+  MATRIX_CLUSTER_INFO_ROOM: "${{ secrets.MATRIX_CLUSTER_INFO_ROOM }}"
+  MATRIX_ROOM: "${{ secrets.MATRIX_ROOM }}"
+  MATRIX_SERVER: "${{ secrets.MATRIX_SERVER }}"
+jobs: 
+  avado: 
+    name: "Build Avado (master or release pushes)"
+    needs: 
+      - build_deploy_sc_npm
+      - build_docker
     runs-on: ubuntu-latest
-    needs: [build_deploy_sc_npm]
-    if: ${{ startsWith(github.ref, 'refs/heads/release/') }}
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Configure Git info
+    steps: 
+      - 
+        uses: actions/checkout@v3
+        with: 
+          fetch-depth: 0
+      - 
+        name: "Configure Git info"
         run: ./scripts/configure-git-info.sh
-
-      - name: Get version from package.json
-        id: get-package-version
-        run: echo "::set-output name=tag::v$(./scripts/get-package-version.sh)"
-        env:
+      - 
+        if: "${{ !env.ACT }}"
+        name: "Pull recent Git changes"
+        run: |
+            # need to pull changes because we've updated the package versions in
+            # the job publish_npm beforehand
+            branch=$(git rev-parse --abbrev-ref HEAD)
+            git pull origin "${branch}" --rebase
+      - 
+        env: 
           HOPR_PACKAGE: hoprd
-
-      - uses: softprops/action-gh-release@v1
-        if: ${{ !env.ACT }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.get-package-version.outputs.tag }}
-          name: HOPR - ${{ steps.get-package-version.outputs.tag }}
-          draft: false
-          prerelease: false
-
-      - name: Send notification if anything failed on master or release branches
-        if: ${{ failure() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')) && !env.ACT }}
-        run: |
-          ./scripts/notify-matrix-github-workflow-failure.sh "${MATRIX_ROOM}" "${{ github.repository }}" \
-            "${{ github.workflow }}" "${{ github.run_id }}"
-
-  build_docker:
-    name: Build Docker Images
-    timeout-minutes: 30
-    runs-on: ubuntu-latest
-    needs: [build_deploy_sc_npm]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Configure Git info
-        run: ./scripts/configure-git-info.sh
-
-      - name: Set up Google Cloud Credentials
-        uses: google-github-actions/auth@v0
-        with:
-          credentials_json: ${{ secrets.GOOGLE_HOPRASSOCIATION_CREDENTIALS_REGISTRY }}
-
-      - name: Set up Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v0
-        with:
-          project_id: ${{ secrets.GOOGLE_HOPRASSOCIATION_PROJECT }}
-          install_components: beta
-
-      - name: Pull recent Git changes
-        if: ${{ !env.ACT }}
-        run: |
-          # need to pull changes because we've updated the package versions in
-          # the job publish_npm beforehand
-          branch=$(git rev-parse --abbrev-ref HEAD)
-          git pull origin "${branch}" --rebase
-
-      - name: Build Docker images
-        run: ./scripts/build-docker.sh
-
-      - name: Send notification if anything failed on master or release branches
-        if: ${{ failure() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')) && !env.ACT }}
-        run: |
-          ./scripts/notify-matrix-github-workflow-failure.sh "${MATRIX_ROOM}" "${{ github.repository }}" \
-            "${{ github.workflow }}" "${{ github.run_id }}"
-
-  avado:
-    name: Build Avado (master or release pushes)
-    runs-on: ubuntu-latest
-    needs: [build_deploy_sc_npm,build_docker]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Configure Git info
-        run: ./scripts/configure-git-info.sh
-
-      - name: Pull recent Git changes
-        if: ${{ !env.ACT }}
-        run: |
-          # need to pull changes because we've updated the package versions in
-          # the job publish_npm beforehand
-          branch=$(git rev-parse --abbrev-ref HEAD)
-          git pull origin "${branch}" --rebase
-
-      - name: Set avado version
         id: set-version
+        name: "Set avado version"
         run: |
-          # Hack version if we are in master (they don't support prerelease versions)
-          # Set this to an arbitrary number less than 1
-          declare version="0.100.0"
-          if [[ "${HOPR_GITHUB_REF}" == refs/heads/release/* ]]; then
-             # only assing the proper version only on release branches because
-             # only there we have simple semver versions
-            version="$(scripts/get-package-version.sh)"
-          fi
-          echo "::set-output name=vsn::${version}"
-        env:
-          HOPR_PACKAGE: hoprd
-
-      - name: Build Avado
-        env:
-          HOPR_GITHUB_REF: ${{ github.ref }}
-          AVADO_VERSION: ${{ steps.set-version.outputs.vsn }}
-        run: |
-          ./scripts/build_avado.sh ${AVADO_VERSION}
-
-      - name: Commit & Push changes
-        if: ${{ !env.ACT }}
-        env:
-          HOPR_GIT_MSG: 'chore(release): publish Avado ${{ steps.set-version.outputs.vsn }}'
-          HOPR_GITHUB_REF: ${{ github.ref }}
+            # Hack version if we are in master (they don't support prerelease versions)
+            # Set this to an arbitrary number less than 1
+            declare version="0.100.0"
+            if [[ "${HOPR_GITHUB_REF}" == refs/heads/release/* ]]; then
+               # only assing the proper version only on release branches because
+               # only there we have simple semver versions
+              version="$(scripts/get-package-version.sh)"
+            fi
+            echo "::set-output name=vsn::${version}"
+      - 
+        env: 
+          AVADO_VERSION: "${{ steps.set-version.outputs.vsn }}"
+          HOPR_GITHUB_REF: "${{ github.ref }}"
+        name: "Build Avado"
+        run: "./scripts/build_avado.sh ${AVADO_VERSION}\n"
+      - 
+        env: 
+          HOPR_GITHUB_REF: "${{ github.ref }}"
+          HOPR_GIT_MSG: "chore(release): publish Avado ${{ steps.set-version.outputs.vsn }}"
+        if: "${{ !env.ACT }}"
+        name: "Commit & Push changes"
         run: ./scripts/commit-and-push-all-changes.sh
-
-      - name: Send notification if anything failed on master or release branches
-        if: ${{ failure() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')) && !env.ACT }}
+      - 
+        if: "${{ failure() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')) && !env.ACT }}"
+        name: "Send notification if anything failed on master or release branches"
         run: |
-          ./scripts/notify-matrix-github-workflow-failure.sh "${MATRIX_ROOM}" "${{ github.repository }}" \
-            "${{ github.workflow }}" "${{ github.run_id }}"
-
-  set_failed_deployment_flag:
-    name: 'Set failed deployment flag'
-    runs-on: ubuntu-latest
-    needs: [ build_docker ]
-    steps:
-      - uses: actions/checkout@v3
-        with:
+            ./scripts/notify-matrix-github-workflow-failure.sh "${MATRIX_ROOM}" "${{ github.repository }}" \
+              "${{ github.workflow }}" "${{ github.run_id }}"
+  build_deploy_sc_npm: 
+    name: "Build / Deploy SCs / Publish NPM"
+    runs-on: "${{ matrix.os }}"
+    steps: 
+      - 
+        uses: actions/checkout@v3
+        with: 
           fetch-depth: 0
-
-      - name: Set up Google Cloud Credentials
-        uses: google-github-actions/auth@v0
-        with:
-          credentials_json: ${{ secrets.GOOGLE_HOPRASSOCIATION_CREDENTIALS_REGISTRY }}
-
-      - name: Set up Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v0
-        with:
-          project_id: ${{ secrets.GOOGLE_HOPRASSOCIATION_PROJECT }}
-          install_components: beta
-
-      - name: Set deployment failure flag
-        if: ${{ !env.ACT }}
-        run: |
-          ./scripts/deployment-gater.sh set
-
-  deploy_public_instances:
-    name: 'Continuous Deployment: Deploy public instances'
-    strategy:
-      matrix:
-        node-version: [16]
-        os: ['ubuntu-latest']
-        rust: ['stable']
-    runs-on: ${{ matrix.os }}
-    needs: [ set_failed_deployment_flag ]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: restore cargo cache
+      - 
+        name: "restore cargo cache"
         uses: actions/cache@v3
-        with:
+        with: 
+          key: "${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}"
           path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Configure Git info
-        run: ./scripts/configure-git-info.sh
-
-      - name: Use Node.js ${{ matrix.node-version }}
+              ~/.cargo/bin/
+              ~/.cargo/registry/index/
+              ~/.cargo/registry/cache/
+              ~/.cargo/git/db/
+              target/
+      - 
+        name: "[SETUP] Use Node.js"
         uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node-version }}
-          registry-url: https://registry.npmjs.org/
+        with: 
           cache: yarn
-
-      - name: Set up Google Cloud Credentials
-        uses: google-github-actions/auth@v0
-        with:
-          credentials_json: ${{ secrets.GOOGLE_HOPRASSOCIATION_CREDENTIALS_REGISTRY }}
-
-      - name: Set up Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v0
-        with:
-          project_id: ${{ secrets.GOOGLE_HOPRASSOCIATION_PROJECT }}
-          install_components: beta
-
-      - name: Initialize, install packages and build
+          node-version: "${{ matrix.node-version }}"
+          registry-url: "https://registry.npmjs.org/"
+      - 
+        name: "[SETUP] Print additional information"
         run: |
-          # get latest version
-          git pull
-          # need to build our packages which might by used by the scripts, such as the fund script
-          CI=true make -j deps
-
-      - name: Restore built artifacts
-        uses: actions/cache@v3
-          path: |
-            packages/
-          key: hoprnet-build-${{ github.run_id }}
-
-      - name: Run deploy script for public nodes
-        if: ${{ !env.ACT }}
-        run: |
-          ./scripts/deploy.sh "gcr.io/hoprassociation/hoprd" 3
-        env:
-          DEPLOYER_WALLET_PRIVATE_KEY: ${{ secrets.DEPLOYER_WALLET_PRIVATE_KEY }}
-          HOPRD_PASSWORD: ${{ secrets.BS_PASSWORD }}
-          HOPRD_API_TOKEN: ${{ secrets.HOPRD_API_TOKEN }}
-          FAUCET_SECRET_API_KEY: ${{ secrets.FAUCET_SECRET_API_KEY }}
-          STAKING_ACCOUNT_BA28: ${{ secrets.STAKING_ACCOUNT_BA28 }}
-          STAKING_ACCOUNT_F84B: ${{ secrets.STAKING_ACCOUNT_F84B }}
-          STAKING_ACCOUNT_0FD4: ${{ secrets.STAKING_ACCOUNT_0FD4 }}
-          STAKING_ACCOUNT_6C15: ${{ secrets.STAKING_ACCOUNT_6C15 }}
-
-      - name: Send cluster info to Matrix
-        if: ${{ success() && !env.ACT }}
-        run: |
-          ./scripts/notify-matrix-cluster-info.sh
-        env:
-          MATRIX_ROOM: ${{ env.MATRIX_CLUSTER_INFO_ROOM }}
-          HOPRD_API_TOKEN: ${{ secrets.HOPRD_API_TOKEN }}
-
-      - name: Send notification if anything failed on master or release branches
-        if: ${{ failure() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')) && !env.ACT }}
-        run: |
-          ./scripts/notify-matrix-github-workflow-failure.sh "${MATRIX_ROOM}" "${{ github.repository }}" \
-            "${{ github.workflow }}" "${{ github.run_id }}"
-
-  deploy_nat_instances:
-    name: 'Continuous Deployment: Deploy NAT instances'
-    strategy:
-      matrix:
-        node-version: [16]
-        os: ['ubuntu-latest']
-        rust: ['stable']
-
-    runs-on: ${{ matrix.os }}
-    needs: [ deploy_public_instances ] # Public nodes need to be deployed first
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: restore cargo cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Configure Git info
+            node --version
+            npm --version
+            yarn --version
+            rustc --version
+            cargo --version
+      - 
+        name: "[SETUP] Configure Git info"
         run: ./scripts/configure-git-info.sh
-
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node-version }}
-          registry-url: https://registry.npmjs.org/
-          cache: yarn
-
-      - name: Set up Google Cloud Credentials
-        uses: google-github-actions/auth@v0
-        with:
-          credentials_json: ${{ secrets.GOOGLE_HOPRASSOCIATION_CREDENTIALS_REGISTRY }}
-
-      - name: Set up Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v0
-        with:
-          project_id: ${{ secrets.GOOGLE_HOPRASSOCIATION_PROJECT }}
-          install_components: beta
-
-      - name: Initialize, install packages and build
+      - 
+        if: "${{ env.ACT == 'true' }}"
+        name: "[SETUP] Install Yarn (only when using ACT)"
         run: |
-          # get latest version
-          git pull
-          # need to build our packages which might by used by the scripts, such as the fund script
-          CI=true make -j deps
-
-      - name: Restore built artifacts
+            curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
+            echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+            apt update
+            apt install --no-install-recommends yarn
+      - 
+        name: "[BUILD] Install dependencies / link / build"
+        run: |
+            # Deploying with hardhat requires built hopr-utils package
+            CI=true make -j deps
+            make -j build
+      - 
+        key: "hoprnet-build-${{ github.run_id }}"
+        name: "Cache built artifacts (for later use)"
+        path: packages/
         uses: actions/cache@v3
-          path: |
-            packages/
-          key: hoprnet-build-${{ github.run_id }}
-
-      - name: Run deploy script for nodes behind NAT
-        if: ${{ !env.ACT }}
+      - 
+        env: 
+          BLOCKSCOUT_KEY: "${{ secrets.BLOCKSCOUT }}"
+          DEPLOYER_WALLET_PRIVATE_KEY: "${{ secrets.DEPLOYER_WALLET_PRIVATE_KEY }}"
+          ETHERSCAN_KEY: "${{ secrets.ETHERSCAN }}"
+        if: "${{ !env.ACT }}"
+        name: "[SMART-CONTRACTS] Deploy for known environments"
+        run: ./scripts/deploy-smart-contracts.sh
+      - 
+        env: 
+          HOPR_GIT_MSG: "chore(release): update smart contract deployments"
+        if: "${{ !env.ACT }}"
+        name: "[SMART-CONTRACTS] Commit & push changes"
         run: |
-          ./scripts/deploy.sh "gcr.io/hoprassociation/hoprd" 2 "-nat"
-        env:
-          DEPLOYER_WALLET_PRIVATE_KEY: ${{ secrets.DEPLOYER_WALLET_PRIVATE_KEY }}
-          HOPRD_PASSWORD: ${{ secrets.BS_PASSWORD }}
-          HOPRD_API_TOKEN: ${{ secrets.HOPRD_API_TOKEN }}
-          FAUCET_SECRET_API_KEY: ${{ secrets.FAUCET_SECRET_API_KEY }}
-          STAKING_ACCOUNT_BA28: ${{ secrets.STAKING_ACCOUNT_BA28 }}
-          STAKING_ACCOUNT_F84B: ${{ secrets.STAKING_ACCOUNT_F84B }}
-          STAKING_ACCOUNT_0FD4: ${{ secrets.STAKING_ACCOUNT_0FD4 }}
-          STAKING_ACCOUNT_6C15: ${{ secrets.STAKING_ACCOUNT_6C15 }}
-
-      - name: Send cluster info to Matrix
-        if: ${{ success() && !env.ACT }}
+            make lint-fix
+            ./scripts/commit-and-push-all-changes.sh
+      - 
+        env: 
+          NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
+        if: "${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/debug-deploy/') }}"
+        name: "[NPM] Publish prerelease version (On pushes to master and debug-deploy/*)"
+        run: "./scripts/publish-version.sh prerelease"
+      - 
+        env: 
+          NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
+        if: "${{ startsWith(github.ref, 'refs/heads/release/') }}"
+        name: "[NPM] Publish patch version (On pushes to release branches)"
+        run: "./scripts/publish-version.sh patch"
+      - 
+        if: "${{ (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/debug-deploy/') || startsWith(github.ref, 'refs/heads/release/')) && !env.ACT }}"
+        name: "[NPM] Wait for packages to be accessible"
         run: |
-          ./scripts/notify-matrix-cluster-info.sh "-nat"
-        env:
-          MATRIX_ROOM: ${{ env.MATRIX_CLUSTER_INFO_ROOM }}
-          HOPRD_API_TOKEN: ${{ secrets.HOPRD_API_TOKEN }}
-
-      - name: Send notification if anything failed on master or release branches
-        if: ${{ failure() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')) && !env.ACT }}
+            ./scripts/wait-for-npm-package.sh hoprd
+            ./scripts/wait-for-npm-package.sh core
+            ./scripts/wait-for-npm-package.sh core-ethereum
+            ./scripts/wait-for-npm-package.sh utils
+            ./scripts/wait-for-npm-package.sh ethereum
+            ./scripts/wait-for-npm-package.sh cover-traffic-daemon
+            ./scripts/wait-for-npm-package.sh connect
+      - 
+        if: "${{ failure() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')) && !env.ACT }}"
+        name: "[FINISH] Send notification if anything failed on master or release branches"
         run: |
-          ./scripts/notify-matrix-github-workflow-failure.sh "${MATRIX_ROOM}" "${{ github.repository }}" \
-            "${{ github.workflow }}" "${{ github.run_id }}"
-
-  unset_failed_deployment_flag:
-    name: 'Unset failed deployment flag'
+            ./scripts/notify-matrix-github-workflow-failure.sh "${MATRIX_ROOM}" "${{ github.repository }}" \
+              "${{ github.workflow }}" "${{ github.run_id }}"
+    strategy: 
+      matrix: 
+        node-version: 
+          - 16
+        os: 
+          - ubuntu-latest
+        rust: 
+          - stable
+  build_docker: 
+    name: "Build Docker Images"
+    needs: 
+      - build_deploy_sc_npm
     runs-on: ubuntu-latest
-    needs: [ avado, deploy_public_instances, deploy_nat_instances ]
-    steps:
-      - uses: actions/checkout@v3
-        with:
+    steps: 
+      - 
+        uses: actions/checkout@v3
+        with: 
           fetch-depth: 0
-
-      - name: Set up Google Cloud Credentials
+      - 
+        name: "Configure Git info"
+        run: ./scripts/configure-git-info.sh
+      - 
+        name: "Set up Google Cloud Credentials"
         uses: google-github-actions/auth@v0
-        with:
-          credentials_json: ${{ secrets.GOOGLE_HOPRASSOCIATION_CREDENTIALS_REGISTRY }}
-
-      - name: Set up Google Cloud SDK
+        with: 
+          credentials_json: "${{ secrets.GOOGLE_HOPRASSOCIATION_CREDENTIALS_REGISTRY }}"
+      - 
+        name: "Set up Google Cloud SDK"
         uses: google-github-actions/setup-gcloud@v0
-        with:
-          project_id: ${{ secrets.GOOGLE_HOPRASSOCIATION_PROJECT }}
+        with: 
           install_components: beta
-
-      - name: Unset deployment failure flag
-        if: ${{ !env.ACT }}
+          project_id: "${{ secrets.GOOGLE_HOPRASSOCIATION_PROJECT }}"
+      - 
+        if: "${{ !env.ACT }}"
+        name: "Pull recent Git changes"
         run: |
-          ./scripts/deployment-gater.sh unset
+            # need to pull changes because we've updated the package versions in
+            # the job publish_npm beforehand
+            branch=$(git rev-parse --abbrev-ref HEAD)
+            git pull origin "${branch}" --rebase
+      - 
+        name: "Build Docker images"
+        run: ./scripts/build-docker.sh
+      - 
+        if: "${{ failure() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')) && !env.ACT }}"
+        name: "Send notification if anything failed on master or release branches"
+        run: |
+            ./scripts/notify-matrix-github-workflow-failure.sh "${MATRIX_ROOM}" "${{ github.repository }}" \
+              "${{ github.workflow }}" "${{ github.run_id }}"
+    timeout-minutes: 30
+  deploy_nat_instances: 
+    name: "Continuous Deployment: Deploy NAT instances"
+    needs: 
+      - deploy_public_instances
+    runs-on: "${{ matrix.os }}"
+    steps: 
+      - 
+        uses: actions/checkout@v3
+        with: 
+          fetch-depth: 0
+      - 
+        name: "restore cargo cache"
+        uses: actions/cache@v3
+        with: 
+          key: "${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}"
+          path: |
+              ~/.cargo/bin/
+              ~/.cargo/registry/index/
+              ~/.cargo/registry/cache/
+              ~/.cargo/git/db/
+              target/
+      - 
+        name: "Configure Git info"
+        run: ./scripts/configure-git-info.sh
+      - 
+        name: "Use Node.js ${{ matrix.node-version }}"
+        uses: actions/setup-node@v3
+        with: 
+          cache: yarn
+          node-version: "${{ matrix.node-version }}"
+          registry-url: "https://registry.npmjs.org/"
+      - 
+        name: "Set up Google Cloud Credentials"
+        uses: google-github-actions/auth@v0
+        with: 
+          credentials_json: "${{ secrets.GOOGLE_HOPRASSOCIATION_CREDENTIALS_REGISTRY }}"
+      - 
+        name: "Set up Google Cloud SDK"
+        uses: google-github-actions/setup-gcloud@v0
+        with: 
+          install_components: beta
+          project_id: "${{ secrets.GOOGLE_HOPRASSOCIATION_PROJECT }}"
+      - 
+        name: "Initialize, install packages and build"
+        run: |
+            # get latest version
+            git pull
+            # need to build our packages which might by used by the scripts, such as the fund script
+            CI=true make -j deps
+      - 
+        key: "hoprnet-build-${{ github.run_id }}"
+        name: "Restore built artifacts"
+        path: packages/
+        uses: actions/cache@v3
+      - 
+        env: 
+          DEPLOYER_WALLET_PRIVATE_KEY: "${{ secrets.DEPLOYER_WALLET_PRIVATE_KEY }}"
+          FAUCET_SECRET_API_KEY: "${{ secrets.FAUCET_SECRET_API_KEY }}"
+          HOPRD_API_TOKEN: "${{ secrets.HOPRD_API_TOKEN }}"
+          HOPRD_PASSWORD: "${{ secrets.BS_PASSWORD }}"
+          STAKING_ACCOUNT_0FD4: "${{ secrets.STAKING_ACCOUNT_0FD4 }}"
+          STAKING_ACCOUNT_6C15: "${{ secrets.STAKING_ACCOUNT_6C15 }}"
+          STAKING_ACCOUNT_BA28: "${{ secrets.STAKING_ACCOUNT_BA28 }}"
+          STAKING_ACCOUNT_F84B: "${{ secrets.STAKING_ACCOUNT_F84B }}"
+        if: "${{ !env.ACT }}"
+        name: "Run deploy script for nodes behind NAT"
+        run: "./scripts/deploy.sh \"gcr.io/hoprassociation/hoprd\" 2 \"-nat\"\n"
+      - 
+        env: 
+          HOPRD_API_TOKEN: "${{ secrets.HOPRD_API_TOKEN }}"
+          MATRIX_ROOM: "${{ env.MATRIX_CLUSTER_INFO_ROOM }}"
+        if: "${{ success() && !env.ACT }}"
+        name: "Send cluster info to Matrix"
+        run: "./scripts/notify-matrix-cluster-info.sh \"-nat\"\n"
+      - 
+        if: "${{ failure() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')) && !env.ACT }}"
+        name: "Send notification if anything failed on master or release branches"
+        run: |
+            ./scripts/notify-matrix-github-workflow-failure.sh "${MATRIX_ROOM}" "${{ github.repository }}" \
+              "${{ github.workflow }}" "${{ github.run_id }}"
+    strategy: 
+      matrix: 
+        node-version: 
+          - 16
+        os: 
+          - ubuntu-latest
+        rust: 
+          - stable
+  deploy_public_instances: 
+    name: "Continuous Deployment: Deploy public instances"
+    needs: 
+      - set_failed_deployment_flag
+    runs-on: "${{ matrix.os }}"
+    steps: 
+      - 
+        uses: actions/checkout@v3
+        with: 
+          fetch-depth: 0
+      - 
+        name: "restore cargo cache"
+        uses: actions/cache@v3
+        with: 
+          key: "${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}"
+          path: |
+              ~/.cargo/bin/
+              ~/.cargo/registry/index/
+              ~/.cargo/registry/cache/
+              ~/.cargo/git/db/
+              target/
+      - 
+        name: "Configure Git info"
+        run: ./scripts/configure-git-info.sh
+      - 
+        name: "Use Node.js ${{ matrix.node-version }}"
+        uses: actions/setup-node@v3
+        with: 
+          cache: yarn
+          node-version: "${{ matrix.node-version }}"
+          registry-url: "https://registry.npmjs.org/"
+      - 
+        name: "Set up Google Cloud Credentials"
+        uses: google-github-actions/auth@v0
+        with: 
+          credentials_json: "${{ secrets.GOOGLE_HOPRASSOCIATION_CREDENTIALS_REGISTRY }}"
+      - 
+        name: "Set up Google Cloud SDK"
+        uses: google-github-actions/setup-gcloud@v0
+        with: 
+          install_components: beta
+          project_id: "${{ secrets.GOOGLE_HOPRASSOCIATION_PROJECT }}"
+      - 
+        name: "Initialize, install packages and build"
+        run: |
+            # get latest version
+            git pull
+            # need to build our packages which might by used by the scripts, such as the fund script
+            CI=true make -j deps
+      - 
+        key: "hoprnet-build-${{ github.run_id }}"
+        name: "Restore built artifacts"
+        path: packages/
+        uses: actions/cache@v3
+      - 
+        env: 
+          DEPLOYER_WALLET_PRIVATE_KEY: "${{ secrets.DEPLOYER_WALLET_PRIVATE_KEY }}"
+          FAUCET_SECRET_API_KEY: "${{ secrets.FAUCET_SECRET_API_KEY }}"
+          HOPRD_API_TOKEN: "${{ secrets.HOPRD_API_TOKEN }}"
+          HOPRD_PASSWORD: "${{ secrets.BS_PASSWORD }}"
+          STAKING_ACCOUNT_0FD4: "${{ secrets.STAKING_ACCOUNT_0FD4 }}"
+          STAKING_ACCOUNT_6C15: "${{ secrets.STAKING_ACCOUNT_6C15 }}"
+          STAKING_ACCOUNT_BA28: "${{ secrets.STAKING_ACCOUNT_BA28 }}"
+          STAKING_ACCOUNT_F84B: "${{ secrets.STAKING_ACCOUNT_F84B }}"
+        if: "${{ !env.ACT }}"
+        name: "Run deploy script for public nodes"
+        run: "./scripts/deploy.sh \"gcr.io/hoprassociation/hoprd\" 3\n"
+      - 
+        env: 
+          HOPRD_API_TOKEN: "${{ secrets.HOPRD_API_TOKEN }}"
+          MATRIX_ROOM: "${{ env.MATRIX_CLUSTER_INFO_ROOM }}"
+        if: "${{ success() && !env.ACT }}"
+        name: "Send cluster info to Matrix"
+        run: "./scripts/notify-matrix-cluster-info.sh\n"
+      - 
+        if: "${{ failure() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')) && !env.ACT }}"
+        name: "Send notification if anything failed on master or release branches"
+        run: |
+            ./scripts/notify-matrix-github-workflow-failure.sh "${MATRIX_ROOM}" "${{ github.repository }}" \
+              "${{ github.workflow }}" "${{ github.run_id }}"
+    strategy: 
+      matrix: 
+        node-version: 
+          - 16
+        os: 
+          - ubuntu-latest
+        rust: 
+          - stable
+  github_release: 
+    if: "${{ startsWith(github.ref, 'refs/heads/release/') }}"
+    name: "Create Github Release"
+    needs: 
+      - build_deploy_sc_npm
+    runs-on: ubuntu-latest
+    steps: 
+      - 
+        uses: actions/checkout@v3
+      - 
+        name: "Configure Git info"
+        run: ./scripts/configure-git-info.sh
+      - 
+        env: 
+          HOPR_PACKAGE: hoprd
+        id: get-package-version
+        name: "Get version from package.json"
+        run: "echo \"::set-output name=tag::v$(./scripts/get-package-version.sh)\""
+      - 
+        env: 
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        if: "${{ !env.ACT }}"
+        uses: softprops/action-gh-release@v1
+        with: 
+          draft: false
+          name: "HOPR - ${{ steps.get-package-version.outputs.tag }}"
+          prerelease: false
+          tag_name: "${{ steps.get-package-version.outputs.tag }}"
+      - 
+        if: "${{ failure() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')) && !env.ACT }}"
+        name: "Send notification if anything failed on master or release branches"
+        run: |
+            ./scripts/notify-matrix-github-workflow-failure.sh "${MATRIX_ROOM}" "${{ github.repository }}" \
+              "${{ github.workflow }}" "${{ github.run_id }}"
+  set_failed_deployment_flag: 
+    name: "Set failed deployment flag"
+    needs: 
+      - build_docker
+    runs-on: ubuntu-latest
+    steps: 
+      - 
+        uses: actions/checkout@v3
+        with: 
+          fetch-depth: 0
+      - 
+        name: "Set up Google Cloud Credentials"
+        uses: google-github-actions/auth@v0
+        with: 
+          credentials_json: "${{ secrets.GOOGLE_HOPRASSOCIATION_CREDENTIALS_REGISTRY }}"
+      - 
+        name: "Set up Google Cloud SDK"
+        uses: google-github-actions/setup-gcloud@v0
+        with: 
+          install_components: beta
+          project_id: "${{ secrets.GOOGLE_HOPRASSOCIATION_PROJECT }}"
+      - 
+        if: "${{ !env.ACT }}"
+        name: "Set deployment failure flag"
+        run: "./scripts/deployment-gater.sh set\n"
+  unset_failed_deployment_flag: 
+    name: "Unset failed deployment flag"
+    needs: 
+      - avado
+      - deploy_public_instances
+      - deploy_nat_instances
+    runs-on: ubuntu-latest
+    steps: 
+      - 
+        uses: actions/checkout@v3
+        with: 
+          fetch-depth: 0
+      - 
+        name: "Set up Google Cloud Credentials"
+        uses: google-github-actions/auth@v0
+        with: 
+          credentials_json: "${{ secrets.GOOGLE_HOPRASSOCIATION_CREDENTIALS_REGISTRY }}"
+      - 
+        name: "Set up Google Cloud SDK"
+        uses: google-github-actions/setup-gcloud@v0
+        with: 
+          install_components: beta
+          project_id: "${{ secrets.GOOGLE_HOPRASSOCIATION_PROJECT }}"
+      - 
+        if: "${{ !env.ACT }}"
+        name: "Unset deployment failure flag"
+        run: "./scripts/deployment-gater.sh unset"
+name: "HOPR Deploy"
+true: 
+  push: 
+    branches: 
+      - integration/**
+      - master
+      - release/**
+      - avado
+      - debug-deploy/**
+    paths-ignore: 
+      - .processes/**/*
+      - docs/**/*
+      - packages/*/docs/**/*
