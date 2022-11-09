@@ -3440,30 +3440,23 @@ __metadata:
     "@chainsafe/libp2p-noise": 10.0.1
     "@hoprnet/hopr-utils": "workspace:packages/utils"
     "@libp2p/crypto": 1.0.7
-    "@libp2p/interface-address-manager": 2.0.1
     "@libp2p/interface-connection": 3.0.3
     "@libp2p/interface-connection-manager": 1.3.1
     "@libp2p/interface-peer-discovery": 1.0.2
     "@libp2p/interface-peer-id": 1.0.6
-    "@libp2p/interface-peer-store": 1.2.3
-    "@libp2p/interface-registrar": 2.0.4
+    "@libp2p/interface-peer-info": ^1.0.4
     "@libp2p/interface-transport": 2.0.1
     "@libp2p/interfaces": 3.0.4
     "@libp2p/mplex": 7.0.0
     "@libp2p/peer-id": 1.1.16
+    "@libp2p/peer-store": ^5.0.0
     "@multiformats/multiaddr": 11.0.7
-    "@types/bl": 5.0.2
-    "@types/chai": 4.3.3
-    "@types/chai-spies": 1.0.3
     "@types/debug": 4.1.7
     "@types/mocha": 9.1.1
     "@types/node": 16.11.26
     "@types/simple-peer": 9.11.4
     "@types/yargs": 17.0.10
     abortable-iterator: 4.0.2
-    bl: 5.0.0
-    chai: 4.3.6
-    chai-spies: 1.0.0
     chalk: 5.0.1
     debug: 4.3.4
     err-code: 3.0.1
@@ -3482,7 +3475,6 @@ __metadata:
     stream-to-it: 0.2.4
     stun: 2.1.0
     typescript: 4.8.4
-    uint8arraylist: 2.3.2
     wrtc: 0.4.7
     yargs: 17.5.1
   languageName: unknown
@@ -3492,7 +3484,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@hoprnet/hopr-core-ethereum@workspace:packages/core-ethereum"
   dependencies:
-    "@ethersproject/abstract-provider": ^5.7.0
+    "@ethersproject/abstract-provider": 5.7.0
     "@hoprnet/hopr-ethereum": "workspace:packages/ethereum"
     "@hoprnet/hopr-utils": "workspace:packages/utils"
     "@libp2p/crypto": 1.0.7
@@ -3507,7 +3499,7 @@ __metadata:
     chai: 4.3.6
     chalk: 5.0.1
     ethers: 5.7.0
-    hardhat-deploy: ^0.11.20
+    hardhat-deploy: 0.11.20
     mocha: 9.2.2
     nyc: 15.1.0
     retimer: 3.0.0
@@ -3933,7 +3925,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@libp2p/interface-address-manager@npm:2.0.1, @libp2p/interface-address-manager@npm:^2.0.0":
+"@libp2p/interface-address-manager@npm:^2.0.0":
   version: 2.0.1
   resolution: "@libp2p/interface-address-manager@npm:2.0.1"
   dependencies:
@@ -4068,7 +4060,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@libp2p/interface-peer-info@npm:1.0.4, @libp2p/interface-peer-info@npm:^1.0.3":
+"@libp2p/interface-peer-info@npm:1.0.4, @libp2p/interface-peer-info@npm:^1.0.3, @libp2p/interface-peer-info@npm:^1.0.4":
   version: 1.0.4
   resolution: "@libp2p/interface-peer-info@npm:1.0.4"
   dependencies:
@@ -6063,16 +6055,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/bl@npm:5.0.2":
-  version: 5.0.2
-  resolution: "@types/bl@npm:5.0.2"
-  dependencies:
-    "@types/node": "*"
-    "@types/readable-stream": "*"
-  checksum: 5fcdf594ab775fc221bbe9d62e6d597db2c9cec294ea337f65682b968cc6a21c9106b411cb3971f4140eedc4a3a72f12e9b748ccab1658d0e14c2838654168cd
-  languageName: node
-  linkType: hard
-
 "@types/bn.js@npm:^4.11.3":
   version: 4.11.6
   resolution: "@types/bn.js@npm:4.11.6"
@@ -6135,15 +6117,6 @@ __metadata:
   dependencies:
     "@types/chai": "*"
   checksum: 7c1345c6e32513d52d8e562ec173c23161648d6b792046525f18803a9932d7b3ad3dca8f0181e3c529ec42b106099f174e34edeb184d61dc93e32c98b5132fd4
-  languageName: node
-  linkType: hard
-
-"@types/chai-spies@npm:1.0.3":
-  version: 1.0.3
-  resolution: "@types/chai-spies@npm:1.0.3"
-  dependencies:
-    "@types/chai": "*"
-  checksum: f88b1a021c1f6c37259adf4268b00401431633027995725a49c44658b0fedf7ec09aa4e26e59fdf6564df0767a0b105b26a4a9c8a7c6acaf9ba417b06a4c9c70
   languageName: node
   linkType: hard
 
@@ -6591,16 +6564,6 @@ __metadata:
     "@types/scheduler": "*"
     csstype: ^3.0.2
   checksum: b683fa33f751ced0b8c8715df9f40de15513c1d7ce66064a75cdfb8805cc913b0b214a2e7022ef0b724bd62a1e8651d040cd265dd0452bde03cca9b8e495742d
-  languageName: node
-  linkType: hard
-
-"@types/readable-stream@npm:*":
-  version: 2.3.14
-  resolution: "@types/readable-stream@npm:2.3.14"
-  dependencies:
-    "@types/node": "*"
-    safe-buffer: "*"
-  checksum: 0852ffdcf0429416dfa945d8e0bca912d1aa53d131841f4b497fc1ff57f4751e7cd1c926752d8bd319f87a767ada9b1461f6497cb0adb8dfb45611884768561f
   languageName: node
   linkType: hard
 
@@ -8093,17 +8056,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bl@npm:5.0.0":
-  version: 5.0.0
-  resolution: "bl@npm:5.0.0"
-  dependencies:
-    buffer: ^6.0.3
-    inherits: ^2.0.4
-    readable-stream: ^3.4.0
-  checksum: 5dbbcf9cbcf55221dc21f48968bc8cd6d78faea3c653d496ff8e0c382b95e8b6c4b9e818fe67de2f97ed0cd0c219c350ccce42aca91be33e0ad12e698c615061
-  languageName: node
-  linkType: hard
-
 "blakejs@npm:^1.1.0":
   version: 1.2.1
   resolution: "blakejs@npm:1.2.1"
@@ -8772,15 +8724,6 @@ __metadata:
   dependencies:
     openapi-validator: ^0.14.2
   checksum: 9710f0ff3a016a5eaf9f9f73658fd319c639cf0229f6dddc4ed5251adc1d464c232176ab9752a1ff2fb12e417ab43bc87a2782e16929de61e370ea4983e283bc
-  languageName: node
-  linkType: hard
-
-"chai-spies@npm:1.0.0":
-  version: 1.0.0
-  resolution: "chai-spies@npm:1.0.0"
-  peerDependencies:
-    chai: "*"
-  checksum: c3a319d5671cf381029f2745e6330f897de4486e574b0d4fb92e6835268b0139f107295c8abf083949659a6a35dc6c8aa4ac0dc78db0aa16602a4987282b646a
   languageName: node
   linkType: hard
 
@@ -13303,7 +13246,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"hardhat-deploy@npm:^0.11.20":
+"hardhat-deploy@npm:0.11.20":
   version: 0.11.20
   resolution: "hardhat-deploy@npm:0.11.20"
   dependencies:
@@ -21370,17 +21313,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"safe-buffer@npm:*, safe-buffer@npm:5.2.1, safe-buffer@npm:>=5.1.0, safe-buffer@npm:^5.0.1, safe-buffer@npm:^5.1.0, safe-buffer@npm:^5.1.1, safe-buffer@npm:^5.1.2, safe-buffer@npm:^5.2.0, safe-buffer@npm:^5.2.1, safe-buffer@npm:~5.2.0":
-  version: 5.2.1
-  resolution: "safe-buffer@npm:5.2.1"
-  checksum: b99c4b41fdd67a6aaf280fcd05e9ffb0813654894223afb78a31f14a19ad220bba8aba1cb14eddce1fcfb037155fe6de4e861784eb434f7d11ed58d1e70dd491
-  languageName: node
-  linkType: hard
-
 "safe-buffer@npm:5.1.2, safe-buffer@npm:~5.1.0, safe-buffer@npm:~5.1.1":
   version: 5.1.2
   resolution: "safe-buffer@npm:5.1.2"
   checksum: f2f1f7943ca44a594893a852894055cf619c1fbcb611237fc39e461ae751187e7baf4dc391a72125e0ac4fb2d8c5c0b3c71529622e6a58f46b960211e704903c
+  languageName: node
+  linkType: hard
+
+"safe-buffer@npm:5.2.1, safe-buffer@npm:>=5.1.0, safe-buffer@npm:^5.0.1, safe-buffer@npm:^5.1.0, safe-buffer@npm:^5.1.1, safe-buffer@npm:^5.1.2, safe-buffer@npm:^5.2.0, safe-buffer@npm:^5.2.1, safe-buffer@npm:~5.2.0":
+  version: 5.2.1
+  resolution: "safe-buffer@npm:5.2.1"
+  checksum: b99c4b41fdd67a6aaf280fcd05e9ffb0813654894223afb78a31f14a19ad220bba8aba1cb14eddce1fcfb037155fe6de4e861784eb434f7d11ed58d1e70dd491
   languageName: node
   linkType: hard
 
@@ -23823,15 +23766,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"uint8arraylist@npm:2.3.2":
-  version: 2.3.2
-  resolution: "uint8arraylist@npm:2.3.2"
-  dependencies:
-    uint8arrays: ^3.1.0
-  checksum: 468bb198a34be14fb061f40ef0d9f6703412a07a05d4f01223ece546b76ed578e8cb5696ecf2132dc6303b4d97a2c2d937b0c75e7517ed7c7cb135f3d8bbd280
-  languageName: node
-  linkType: hard
-
 "uint8arraylist@npm:^1.2.0, uint8arraylist@npm:^1.4.0":
   version: 1.6.0
   resolution: "uint8arraylist@npm:1.6.0"
@@ -23850,7 +23784,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"uint8arrays@npm:^3.0.0, uint8arrays@npm:^3.1.0":
+"uint8arrays@npm:^3.0.0":
   version: 3.1.0
   resolution: "uint8arrays@npm:3.1.0"
   dependencies:
