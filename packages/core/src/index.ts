@@ -7,11 +7,10 @@ import type BN from 'bn.js'
 import { keysPBM } from '@libp2p/crypto/keys'
 import { createHash } from 'crypto'
 import secp256k1 from 'secp256k1'
-import type { Libp2p as Libp2pType } from 'libp2p'
+import type { Libp2p } from 'libp2p'
 import type { Connection } from '@libp2p/interface-connection'
 import type { Peer } from '@libp2p/interface-peer-store'
 import type { PeerId } from '@libp2p/interface-peer-id'
-import type { Components } from '@libp2p/interfaces/components'
 import { compareAddressesLocalMode, compareAddressesPublicMode, type HoprConnectConfig } from '@hoprnet/hopr-connect'
 
 // @ts-ignore untyped library
@@ -101,11 +100,6 @@ const metric_pathLength = create_histogram_with_buckets(
   new Float64Array([0, 1, 2, 3, 4])
 )
 
-// Using libp2p components directly because it allows us
-// to bypass the API layer
-type Libp2p = Libp2pType & {
-  components: Components
-}
 interface NetOptions {
   ip: string
   port: number
@@ -194,14 +188,14 @@ export type SendMessage = ((
 class Hopr extends EventEmitter {
   public status: NodeStatus = 'UNINITIALIZED'
 
+  private readonly libp2p: Libp2p
+
   private stopPeriodicCheck: (() => void) | undefined
   private strategy: ChannelStrategyInterface
   private networkPeers: NetworkPeers
   private heartbeat: Heartbeat
   private forward: PacketForwardInteraction
   private acknowledgements: AcknowledgementInteraction
-  private libp2pComponents: Components
-  private stopLibp2p: Libp2p['stop']
   private pubKey: PublicKey
   private knownPublicNodesCache = new Set()
 
@@ -298,7 +292,7 @@ class Hopr extends EventEmitter {
     this.connector.indexer.on('peer', pushToRecentlyAnnouncedNodes)
 
     // Initialize libp2p object and pass configuration
-    const libp2p = (await createLibp2pInstance(
+    this.libp2p = (await createLibp2pInstance(
       this.id,
       this.options,
       initialNodes,
@@ -309,17 +303,13 @@ class Hopr extends EventEmitter {
       this.isAllowedAccessToNetwork.bind(this)
     )) as Libp2p
 
-    // Needed to stop libp2p instance
-    this.stopLibp2p = libp2p.stop.bind(libp2p)
-
-    this.libp2pComponents = libp2p.components
     // Subscribe to p2p events from libp2p. Wraps our instance of libp2p.
     const subscribe = (
       protocols: string | string[],
       handler: LibP2PHandlerFunction<Promise<Uint8Array> | Promise<void> | void>,
       includeReply: boolean,
       errHandler: (err: any) => void
-    ) => libp2pSubscribe(this.libp2pComponents, protocols, handler, errHandler, includeReply)
+    ) => libp2pSubscribe(this.libp2p, protocols, handler, errHandler, includeReply)
 
     const sendMessage = ((
       dest: PeerId,
@@ -327,16 +317,16 @@ class Hopr extends EventEmitter {
       msg: Uint8Array,
       includeReply: boolean,
       opts: DialOpts
-    ) => libp2pSendMessage(this.libp2pComponents, dest, protocols, msg, includeReply, opts)) as SendMessage // Typescript limitation
+    ) => libp2pSendMessage(this.libp2p, dest, protocols, msg, includeReply, opts)) as SendMessage // Typescript limitation
 
     // Attach network health measurement functionality
-    const peers: Peer[] = await this.libp2pComponents.getPeerStore().all()
+    const peers: Peer[] = await this.libp2p.peerStore.all()
     this.networkPeers = new NetworkPeers(
       peers.map((p) => p.id),
       [this.id],
       this.options.networkQualityThreshold,
       (peer: PeerId) => {
-        this.libp2pComponents.getPeerStore().delete(peer)
+        this.libp2p.peerStore.delete(peer)
         this.publicNodesEmitter.emit('removePublicNode', peer)
       }
     )
@@ -381,7 +371,7 @@ class Hopr extends EventEmitter {
 
         // If we have a direct connection to this peer ID, declare it a public node
         if (
-          libp2p.connectionManager
+          this.libp2p
             .getConnections(peerId)
             .flatMap((c) => c.tags ?? [])
             .includes(PeerConnectionType.DIRECT)
@@ -396,7 +386,7 @@ class Hopr extends EventEmitter {
       this.options
     )
 
-    this.libp2pComponents.getConnectionManager().addEventListener('peer:connect', (event: CustomEvent<Connection>) => {
+    this.libp2p.connectionManager.addEventListener('peer:connect', (event: CustomEvent<Connection>) => {
       this.networkPeers.register(event.detail.remotePeer, NetworkPeersOrigin.INCOMING_CONNECTION)
     })
 
@@ -427,7 +417,7 @@ class Hopr extends EventEmitter {
     )
 
     // Attach socket listener and check availability of entry nodes
-    await libp2p.start()
+    await this.libp2p.start()
 
     // Register protocols
     await this.acknowledgements.start()
@@ -468,14 +458,10 @@ class Hopr extends EventEmitter {
     log('# STARTED NODE')
     log('ID', this.getId().toString())
     log('Protocol version', VERSION)
-    if (this.libp2pComponents.getAddressManager().getAddresses() !== undefined) {
-      log(`Available under the following addresses:`)
-      for (const ma of this.libp2pComponents.getAddressManager().getAddresses()) {
-        log(` - ${ma.toString()}`)
-      }
-    } else {
-      log(`No multiaddrs has been registered.`)
-    }
+
+    const nodeMultiaddrs = this.libp2p.getMultiaddrs().map((a) => a.toString())
+    log(`Available under the following addresses: ${nodeMultiaddrs}`)
+
     await this.maybeLogProfilingToGCloud()
     this.heartbeat.recalculateNetworkHealth()
   }
@@ -571,7 +557,7 @@ class Hopr extends EventEmitter {
 
     const pubKey = convertPubKeyFromPeerId(peer.id)
     try {
-      await this.libp2pComponents.getPeerStore().keyBook.set(peer.id, pubKey.bytes)
+      await this.libp2p.peerStore.keyBook.set(peer.id, pubKey.bytes)
     } catch (err) {
       log(`Failed to update key peer-store with new peer ${peer.id.toString()} info`, err)
     }
@@ -580,7 +566,7 @@ class Hopr extends EventEmitter {
       this.publicNodesEmitter.emit('addPublicNode', { id: peer.id, multiaddrs: addrsToAdd })
 
       try {
-        await this.libp2pComponents.getPeerStore().addressBook.add(peer.id, addrsToAdd)
+        await this.libp2p.peerStore.addressBook.add(peer.id, addrsToAdd)
       } catch (err) {
         log(`Failed to update address peer-store with new peer ${peer.id.toString()} info`, err)
       }
@@ -735,21 +721,23 @@ class Hopr extends EventEmitter {
     this.status = 'DESTROYED'
     this.forward?.stop()
     this.acknowledgements?.stop()
+
     verbose('Stopping checking timeout')
     this.stopPeriodicCheck?.()
+
     verbose('Stopping heartbeat & indexer')
     this.heartbeat?.stop()
+
     verbose(`Stopping connector`)
     await this.connector?.stop()
+
     verbose('Stopping database')
     await this.db?.close()
     log(`Database closed.`)
 
-    if (this.stopLibp2p) {
-      verbose('Stopping libp2p')
-      await this.stopLibp2p()
-      log(`Libp2p closed.`)
-    }
+    verbose('Stopping libp2p')
+    await this.libp2p.stop()
+    log(`Libp2p stopped.`)
 
     // Give the operating system some extra time to close the sockets
     await new Promise((resolve) => setTimeout(resolve, 100))
@@ -772,13 +760,13 @@ class Hopr extends EventEmitter {
     let addrs: Multiaddr[]
 
     if (peer.equals(this.getId())) {
-      addrs = this.libp2pComponents.getAddressManager().getAddresses()
+      addrs = this.libp2p.addressManager.getAnnounceAddrs()
     } else {
       addrs = await this.getObservedAddresses(peer)
 
       try {
         // @TODO add abort controller
-        for await (const relayer of this.libp2pComponents.getContentRouting().findProviders(createRelayerKey(peer))) {
+        for await (const relayer of this.libp2p.contentRouting.findProviders(createRelayerKey(peer))) {
           const relayAddress = createCircuitAddress(relayer.id)
           if (addrs.findIndex((ma) => ma.equals(relayAddress)) < 0) {
             addrs.push(relayAddress)
@@ -804,7 +792,7 @@ class Hopr extends EventEmitter {
     }
     // @TODO find a better way to do this
     // @ts-ignore undocumented method
-    return this.libp2pComponents.getAddressManager().getListenAddrs()
+    return this.libp2p.addressManager.getListenAddrs()
   }
 
   /**
@@ -812,7 +800,7 @@ class Hopr extends EventEmitter {
    * @param peer peer to query for
    */
   public async getObservedAddresses(peer: PeerId): Promise<Multiaddr[]> {
-    const addresses = await this.libp2pComponents.getPeerStore().addressBook.get(peer)
+    const addresses = await this.libp2p.peerStore.addressBook.get(peer)
     return addresses.map((addr) => addr.multiaddr)
   }
 
@@ -969,7 +957,7 @@ class Hopr extends EventEmitter {
    * @param peer PeerId of the peer from whom we want to disconnect
    */
   private closeConnectionsTo(peer: PeerId): void {
-    const connections = this.libp2pComponents.getConnectionManager().getConnections(peer)
+    const connections = this.libp2p.getConnections(peer)
 
     for (const conn of connections) {
       // Don't block event loop

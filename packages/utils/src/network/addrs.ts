@@ -10,7 +10,7 @@ import {
 
 import { networkInterfaces, type NetworkInterfaceInfo } from 'os'
 import type { PeerId } from '@libp2p/interface-peer-id'
-import { Multiaddr, protocols } from '@multiformats/multiaddr'
+import { multiaddr, protocols, Multiaddr } from '@multiformats/multiaddr'
 
 const CODE_P2P = protocols('p2p').code
 const CODE_IP4 = protocols('ip4').code
@@ -306,8 +306,8 @@ export function getLocalHosts(_iface?: string): Network[] {
  * @param relay Relay peer ID
  */
 export function createCircuitAddress(relay: PeerId): Multiaddr {
-  // equivalent to `return new Multiaddr(`/p2p/${relay.toString()}/p2p-circuit`)`
-  return new Multiaddr(Uint8Array.from([165, 3, 39, ...relay.toBytes(), 162, 2]))
+  // equivalent to `return multiaddr(`/p2p/${relay.toString()}/p2p-circuit`)`
+  return multiaddr(Uint8Array.from([165, 3, 39, ...relay.toBytes(), 162, 2]))
 }
 
 /**

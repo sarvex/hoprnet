@@ -1,4 +1,4 @@
-import { Multiaddr, protocols } from '@multiformats/multiaddr'
+import { multiaddr, protocols, Multiaddr } from '@multiformats/multiaddr'
 import type { PeerId } from '@libp2p/interface-peer-id'
 import { u8aSplit, serializeToU8a, MULTI_ADDR_MAX_LENGTH, toU8a, u8aToNumber } from '../index.js'
 import BN from 'bn.js'
@@ -37,7 +37,7 @@ export class AccountEntry {
 
     return new AccountEntry(
       pubKey,
-      maLength == 0 ? undefined : new Multiaddr(preMultiAddr.slice(MULTI_ADDR_MAX_LENGTH - maLength)),
+      maLength == 0 ? undefined : multiaddr(preMultiAddr.slice(MULTI_ADDR_MAX_LENGTH - maLength)),
       blockNumber
     )
   }

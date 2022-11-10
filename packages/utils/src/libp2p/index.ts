@@ -3,8 +3,8 @@
  */
 import type { PeerId } from '@libp2p/interface-peer-id'
 import type { PublicKey } from '@libp2p/interface-keys'
-import type { Components } from '@libp2p/interfaces/components'
-import type { Connection, ProtocolStream } from '@libp2p/interface-connection'
+import type { Connection, Stream } from '@libp2p/interface-connection'
+import type { Libp2p } from 'libp2p'
 
 import { keys } from '@libp2p/crypto'
 import { peerIdFromString } from '@libp2p/peer-id'
@@ -98,7 +98,7 @@ const DEFAULT_SEND_TIMEOUT = 10_000
 /**
  * Asks libp2p to establish a connection to another node and
  * send message. If `includeReply` is set, wait for a response
- * @param components libp2p components
+ * @param libp2p instance of libp2p
  * @param destination peer to connect to
  * @param protocols protocols to speak
  * @param message message to send
@@ -106,7 +106,7 @@ const DEFAULT_SEND_TIMEOUT = 10_000
  * @param opts [optional] timeout
  */
 export async function libp2pSendMessage<T extends boolean>(
-  components: Components,
+  libp2p: Libp2p,
   destination: PeerId,
   protocols: string | string[],
   message: Uint8Array,
@@ -116,7 +116,7 @@ export async function libp2pSendMessage<T extends boolean>(
   } = {}
 ): Promise<T extends true ? Uint8Array[] : void> {
   // Components is not part of interface
-  const r = await dial(components, destination, protocols)
+  const r = await dial(libp2p, destination, protocols)
 
   if (r.status !== 'SUCCESS') {
     logError(r)
@@ -168,7 +168,7 @@ export async function libp2pSendMessage<T extends boolean>(
  *  interact with - this function simply allows us to assign a handler
  *  function that is called on each 'message' of the stream.
  */
-export type LibP2PHandlerArgs = { connection: Connection; stream: ProtocolStream['stream']; protocol: string }
+export type LibP2PHandlerArgs = { connection: Connection; stream: Stream; protocol: string }
 export type LibP2PHandlerFunction<T> = (msg: Uint8Array, remotePeer: PeerId) => T
 
 type HandlerFunction<T> = (props: LibP2PHandlerArgs) => T
@@ -230,18 +230,18 @@ function generateHandler<T extends boolean>(
 /**
  * Generates a handler that pulls messages out of a stream
  * and feeds them to the given handler.
- * @param components libp2p components
+ * @param libp2p instance of libp2p
  * @param protocols protocol to dial
  * @param handler called once another node requests that protocol
  * @param errHandler handle stream pipeline errors
  * @param includeReply try to receive a reply
  */
 export async function libp2pSubscribe<T extends boolean>(
-  components: Components,
+  libp2p: Libp2p,
   protocols: string | string[],
   handler: LibP2PHandlerFunction<T extends true ? Promise<Uint8Array> : Promise<void> | void>,
   errHandler: ErrHandler,
   includeReply: T
 ): Promise<void> {
-  await components.getRegistrar().handle(protocols, generateHandler(handler, errHandler, includeReply))
+  await libp2p.registrar.handle(protocols, generateHandler(handler, errHandler, includeReply))
 }

@@ -1,9 +1,9 @@
 import { createLibp2p, type Libp2p } from 'libp2p'
-import { TCP } from '@libp2p/tcp'
-import { Mplex } from '@libp2p/mplex'
-import { Noise } from '@chainsafe/libp2p-noise'
+import { tcp } from '@libp2p/tcp'
+import { mplex } from '@libp2p/mplex'
+import { noise } from '@chainsafe/libp2p-noise'
 import { KadDHT } from '@libp2p/kad-dht'
-import { Multiaddr } from '@multiformats/multiaddr'
+import { multiaddr } from '@multiformats/multiaddr'
 
 import type { PeerId } from '@libp2p/interface-peer-id'
 
@@ -22,12 +22,12 @@ const peerC = privKeyToPeerId('0x462684d27c3573981dd8b62ec4fbb92446dbb1797ef1278
 async function getNode(id: PeerId): Promise<Libp2p> {
   const node = await createLibp2p({
     addresses: {
-      listen: [new Multiaddr(`/ip4/0.0.0.0/tcp/0/p2p/${id.toString()}`).toString()]
+      listen: [multiaddr(`/ip4/0.0.0.0/tcp/0/p2p/${id.toString()}`).toString()]
     },
     peerId: id,
-    transports: [new TCP()],
-    streamMuxers: [new Mplex()],
-    connectionEncryption: [new Noise()],
+    transports: [tcp()],
+    streamMuxers: [mplex()],
+    connectionEncryption: [noise()],
     // @ts-ignore
     dht: new KadDHT({ clientMode: false, protocolPrefix: '/hopr', lan: true, pingTimeout: 1e3 }),
     metrics: {

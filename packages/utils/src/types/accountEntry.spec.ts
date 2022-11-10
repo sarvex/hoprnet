@@ -1,5 +1,5 @@
 import assert from 'assert'
-import { Multiaddr } from '@multiformats/multiaddr'
+import { multiaddr } from '@multiformats/multiaddr'
 import { AccountEntry } from './accountEntry.js'
 import BN from 'bn.js'
 import { PublicKey } from './publicKey.js'
@@ -8,8 +8,8 @@ import { PublicKey } from './publicKey.js'
 const PARTY_A = PublicKey.fromPrivKeyString('0xc14b8faa0a9b8a5fa4453664996f23a7e7de606d42297d723fc4a794f375e260')
 const PARTY_A_PEERID = PARTY_A.toPeerId()
 const PARTY_A_ADDRESS = PARTY_A.toAddress()
-const PARTY_A_MULTI_ADDR = new Multiaddr('/p2p/16Uiu2HAm3rUQdpCz53tK1MVUUq9NdMAU6mFgtcXrf71Ltw6AStzk')
-const PARTY_A_MULTI_ADDR_WITH_ROUTING = new Multiaddr(
+const PARTY_A_MULTI_ADDR = multiaddr('/p2p/16Uiu2HAm3rUQdpCz53tK1MVUUq9NdMAU6mFgtcXrf71Ltw6AStzk')
+const PARTY_A_MULTI_ADDR_WITH_ROUTING = multiaddr(
   '/ip4/34.65.237.196/tcp/9091/p2p/16Uiu2HAm3rUQdpCz53tK1MVUUq9NdMAU6mFgtcXrf71Ltw6AStzk'
 )
 

@@ -1,11 +1,11 @@
 import assert from 'assert'
 import type { PeerId } from '@libp2p/interface-peer-id'
-import type { Connection, ProtocolStream } from '@libp2p/interface-connection'
+import type { Connection, Stream } from '@libp2p/interface-connection'
 import type { Components } from '@libp2p/interfaces/components'
 import type { StreamHandler, IncomingStreamData } from '@libp2p/interface-registrar'
 import { peerIdFromString } from '@libp2p/peer-id'
 import { createSecp256k1PeerId, createEd25519PeerId } from '@libp2p/peer-id-factory'
-import { Multiaddr } from '@multiformats/multiaddr'
+import { multiaddr } from '@multiformats/multiaddr'
 
 import { defer, type DeferType } from '../async/index.js'
 import { u8aEquals } from '../u8a/index.js'
@@ -125,7 +125,7 @@ function getFakeLibp2p(
                         yield messages.msgToReplyWith
                       }
                     })()
-                  } as ProtocolStream['stream'],
+                  } as Stream,
                   protocol
                 }),
               remotePeer: destination
@@ -140,7 +140,7 @@ function getFakeLibp2p(
           async get(_peer: PeerId) {
             return [
               {
-                multiaddr: new Multiaddr(`/ip4/1.2.3.4/`),
+                multiaddr: multiaddr(`/ip4/1.2.3.4/`),
                 isCertified: true
               }
             ]
@@ -290,7 +290,7 @@ describe(`test libp2pSubscribe`, async function () {
                   yield msgToReceive
                 })(),
                 sink: (() => {}) as any
-              } as ProtocolStream['stream'],
+              } as Stream,
               connection: {
                 remotePeer
               } as any,

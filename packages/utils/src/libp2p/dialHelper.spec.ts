@@ -1,8 +1,8 @@
-import { Noise } from '@chainsafe/libp2p-noise'
-import { Mplex } from '@libp2p/mplex'
+import { noise } from '@chainsafe/libp2p-noise'
+import { mplex } from '@libp2p/mplex'
 import { createLibp2p, type Libp2p } from 'libp2p'
 import { KadDHT } from '@libp2p/kad-dht'
-import { Multiaddr } from '@multiformats/multiaddr'
+import { multiaddr, Multiaddr } from '@multiformats/multiaddr'
 import { TCP } from '@libp2p/tcp'
 import type { DialOptions } from '@libp2p/interfaces/transport'
 import type { Address, AddressBook, PeerStore } from '@libp2p/interface-peer-store'
@@ -63,12 +63,12 @@ class MyTCP extends TCP {
 async function getNode(id: PeerId, withDht = false, oracle?: Map<string, Components>): Promise<Libp2p> {
   const node = await createLibp2p({
     addresses: {
-      listen: [new Multiaddr(`/ip4/0.0.0.0/tcp/0/p2p/${id.toString()}`).toString()]
+      listen: [multiaddr(`/ip4/0.0.0.0/tcp/0/p2p/${id.toString()}`).toString()]
     },
     peerId: id,
     transports: [new MyTCP(oracle)],
-    streamMuxers: [new Mplex()],
-    connectionEncryption: [new Noise()],
+    streamMuxers: [mplex()],
+    connectionEncryption: [noise()],
     // @ts-ignore
     dht: withDht ? new KadDHT({ protocolPrefix: '/hopr', clientMode: false, pingTimeout: 1e3, lan: true }) : undefined,
     metrics: {
