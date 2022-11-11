@@ -6,8 +6,6 @@ import type { Connection, Stream } from '@libp2p/interface-connection'
 import { type Multiaddr, protocols as maProtocols } from '@multiformats/multiaddr'
 import type { Libp2p } from 'libp2p'
 
-import { type TimeoutOpts } from '../async/index.js'
-
 import { debug } from '../process/index.js'
 import { createRelayerKey } from './relayCode.js'
 import { createCircuitAddress } from '../network/index.js'
@@ -31,6 +29,10 @@ export enum DialStatus {
   DIAL_ERROR = 'E_DIAL',
   DHT_ERROR = 'E_DHT_QUERY',
   NO_DHT = 'E_NO_DHT'
+}
+
+export type DialOpts = {
+  timeout?: number
 }
 
 export type DialResponse =
@@ -433,5 +435,3 @@ export async function dial(
 
   return await fetchCircuitAddressesAndDial(libp2p, id, protocols)
 }
-
-export type { TimeoutOpts as DialOpts }

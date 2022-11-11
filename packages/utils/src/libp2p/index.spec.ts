@@ -228,9 +228,8 @@ describe(`test libp2pSubscribe`, async function () {
       return new Promise((resolve) => setTimeout(resolve, 50, msgToReplyWith))
     }
 
-    const libp2pComponents = {
-      getRegistrar() {
-        return {
+    const libp2p = {
+      registrar: {
           async handle(protocols: string | string[], handlerFunction: StreamHandler) {
             handlerFunction({
               stream: {
@@ -255,11 +254,10 @@ describe(`test libp2pSubscribe`, async function () {
               protocol: protocols[0]
             } as IncomingStreamData)
           }
-        } as Components['registrar']
       }
-    } as Components
+    }
 
-    libp2pSubscribe(libp2pComponents, ['demo protocol'], fakeOnMessage, () => {}, true)
+    libp2pSubscribe(libp2p, ['demo protocol'], fakeOnMessage, () => {}, true)
 
     await Promise.all([msgReceived.promise, msgReplied.promise])
   })

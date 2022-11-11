@@ -8,12 +8,12 @@ import type { Libp2p } from 'libp2p'
 
 import { keys } from '@libp2p/crypto'
 import { peerIdFromString } from '@libp2p/peer-id'
-
-import { debug } from '../process/index.js'
-import { pipe } from 'it-pipe'
-import { dial } from './dialHelper.js'
 import { abortableSource } from 'abortable-iterator'
 import { TimeoutController } from 'timeout-abort-controller'
+import { pipe } from 'it-pipe'
+
+import { debug } from '../process/index.js'
+import { dial, DialOpts } from './dialHelper.js'
 
 export * from './addressSorters.js'
 export * from './dialHelper.js'
@@ -103,7 +103,7 @@ const DEFAULT_SEND_TIMEOUT = 10_000
  * @param protocols protocols to speak
  * @param message message to send
  * @param includeReply try to receive a reply
- * @param opts [optional] timeout
+ * @param opts [optional] dial options
  */
 export async function libp2pSendMessage<T extends boolean>(
   libp2p: Libp2p,
@@ -111,9 +111,7 @@ export async function libp2pSendMessage<T extends boolean>(
   protocols: string | string[],
   message: Uint8Array,
   includeReply: T,
-  opts: {
-    timeout?: number
-  } = {}
+  opts: DialOpts = {}
 ): Promise<T extends true ? Uint8Array[] : void> {
   // Components is not part of interface
   const r = await dial(libp2p, destination, protocols)
@@ -243,5 +241,5 @@ export async function libp2pSubscribe<T extends boolean>(
   errHandler: ErrHandler,
   includeReply: T
 ): Promise<void> {
-  await libp2p.registrar.handle(protocols, generateHandler(handler, errHandler, includeReply))
+  await libp2p.handle(protocols, generateHandler(handler, errHandler, includeReply))
 }

@@ -2,7 +2,7 @@ import { createLibp2p, type Libp2p } from 'libp2p'
 import { tcp } from '@libp2p/tcp'
 import { mplex } from '@libp2p/mplex'
 import { noise } from '@chainsafe/libp2p-noise'
-import { KadDHT } from '@libp2p/kad-dht'
+import { kadDHT } from '@libp2p/kad-dht'
 import { multiaddr } from '@multiformats/multiaddr'
 
 import type { PeerId } from '@libp2p/interface-peer-id'
@@ -29,7 +29,7 @@ async function getNode(id: PeerId): Promise<Libp2p> {
     streamMuxers: [mplex()],
     connectionEncryption: [noise()],
     // @ts-ignore
-    dht: new KadDHT({ clientMode: false, protocolPrefix: '/hopr', lan: true, pingTimeout: 1e3 }),
+    dht: kadDHT({ clientMode: false, protocolPrefix: '/hopr', lan: true, pingTimeout: 1e3 }),
     metrics: {
       enabled: false
     },
