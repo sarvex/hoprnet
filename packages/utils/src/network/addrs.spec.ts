@@ -234,8 +234,7 @@ describe('test utils', function () {
 
   it('should filter p2p addrs', function () {
     assert(
-      isAddressWithPeerId(multiaddr(`/p2p/16Uiu2HAmQBZA4TzjKjU5fpCSprGuM2y8mpepNwMS6ZKFATiKg68h/p2p-circuit`)) ===
-        false
+      isAddressWithPeerId(multiaddr(`/p2p/16Uiu2HAmQBZA4TzjKjU5fpCSprGuM2y8mpepNwMS6ZKFATiKg68h/p2p-circuit`)) === false
     )
 
     assert(

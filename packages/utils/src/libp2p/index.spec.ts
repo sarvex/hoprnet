@@ -230,30 +230,30 @@ describe(`test libp2pSubscribe`, async function () {
 
     const libp2p = {
       registrar: {
-          async handle(protocols: string | string[], handlerFunction: StreamHandler) {
-            handlerFunction({
-              stream: {
-                source: (async function* (): AsyncIterable<Uint8Array> {
-                  yield msgToReceive
-                })(),
-                sink: async (source: AsyncIterable<Uint8Array>) => {
-                  const msgs = []
-                  for await (const msg of source) {
-                    msgs.push(msg)
-                  }
-                  if (msgs.length > 0 && u8aEquals(msgs[0], msgToReplyWith)) {
-                    msgReplied.resolve()
-                  } else {
-                    msgReplied.reject()
-                  }
+        async handle(protocols: string | string[], handlerFunction: StreamHandler) {
+          handlerFunction({
+            stream: {
+              source: (async function* (): AsyncIterable<Uint8Array> {
+                yield msgToReceive
+              })(),
+              sink: async (source: AsyncIterable<Uint8Array>) => {
+                const msgs = []
+                for await (const msg of source) {
+                  msgs.push(msg)
                 }
-              },
-              connection: {
-                remotePeer
-              } as Connection,
-              protocol: protocols[0]
-            } as IncomingStreamData)
-          }
+                if (msgs.length > 0 && u8aEquals(msgs[0], msgToReplyWith)) {
+                  msgReplied.resolve()
+                } else {
+                  msgReplied.reject()
+                }
+              }
+            },
+            connection: {
+              remotePeer
+            } as Connection,
+            protocol: protocols[0]
+          } as IncomingStreamData)
+        }
       }
     }
 

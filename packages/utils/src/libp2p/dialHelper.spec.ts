@@ -28,25 +28,25 @@ const Chris = privKeyToPeerId(stringToU8a('0x1bbb9a915ddd6e19d0f533da6c0fbe88205
  * Used to annotate libp2p's TCP module to work similarly as `hopr-connect`
  * by using an oracle that knows how to connect to hidden nodes
  */
- async function custom_tcp_dial(ma: Multiaddr, options: TCPDialOptions): Promise<Connection> {
-    if (ma.toString().startsWith('/ip4')) {
-      return super.dial(ma, options)
-    } else if (this.oracle != undefined) {
-      const destination = ma.getPeerId() as string
-      for (const address of this.oracle.get(destination.toString())?.getTransportManager().getAddrs()) {
-        let conn: Connection
-        try {
-          conn = await super.dial(address, options)
-        } catch (err) {
-          continue
-        }
+async function custom_tcp_dial(ma: Multiaddr, options: TCPDialOptions): Promise<Connection> {
+  if (ma.toString().startsWith('/ip4')) {
+    return super.dial(ma, options)
+  } else if (this.oracle != undefined) {
+    const destination = ma.getPeerId() as string
+    for (const address of this.oracle.get(destination.toString())?.getTransportManager().getAddrs()) {
+      let conn: Connection
+      try {
+        conn = await super.dial(address, options)
+      } catch (err) {
+        continue
+      }
 
-        if (conn != undefined) {
-          return conn
-        }
+      if (conn != undefined) {
+        return conn
       }
     }
   }
+}
 
 function custom_tcp_filter(multiaddrs: Multiaddr[]): Multiaddr[] {
   return multiaddrs
@@ -58,7 +58,7 @@ function testDHT() {
 
 async function getNode(id: PeerId, dht?: any, oracle?: Map<string, Libp2p>): Promise<Libp2p> {
   const mytcp = tcp()
-  Object.assign(tcp, {oracle, filter: custom_tcp_filter, dial: custom_tcp_dial })
+  Object.assign(tcp, { oracle, filter: custom_tcp_filter, dial: custom_tcp_dial })
 
   const node = await createLibp2p({
     addresses: {
@@ -231,16 +231,16 @@ describe('test dialHelper', function () {
   })
 
   it('DHT does not find any new addresses', async function () {
-      const dht = {
-          [Symbol.toStringTag]: 'some DHT that is not @libp2p/dummy-dht'
-      }
+    const dht = {
+      [Symbol.toStringTag]: 'some DHT that is not @libp2p/dummy-dht'
+    }
     const peerA = await getNode(Alice, dht)
-   Object.assign(peerA, {
-     contentRouting: {
-          // Returning an empty iterator
-          findProviders: () => (async function* () {})()
+    Object.assign(peerA, {
+      contentRouting: {
+        // Returning an empty iterator
+        findProviders: () => (async function* () {})()
       },
-    connectionManager: getConnectionManager(),
+      connectionManager: getConnectionManager(),
       peerStore: getPeerStore()
     })
 
@@ -253,17 +253,17 @@ describe('test dialHelper', function () {
   })
 
   it('DHT throws an error', async function () {
-      const dht = {
-          [Symbol.toStringTag]: 'some DHT that is not @libp2p/dummy-dht'
-      }
+    const dht = {
+      [Symbol.toStringTag]: 'some DHT that is not @libp2p/dummy-dht'
+    }
     const peerA = await getNode(Alice, dht)
-   Object.assign(peerA, {
+    Object.assign(peerA, {
       contentRouting: {
-          // Returning an empty iterator
-          findProviders: () =>
-            (async function* () {
-              throw Error(`boom`)
-            })()
+        // Returning an empty iterator
+        findProviders: () =>
+          (async function* () {
+            throw Error(`boom`)
+          })()
       },
       connectionManager: getConnectionManager(),
       peerStore: getPeerStore()

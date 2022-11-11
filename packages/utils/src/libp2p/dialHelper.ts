@@ -39,7 +39,7 @@ export type DialResponse =
   | {
       status: DialStatus.SUCCESS
       resp: {
-        conn: Connection,
+        conn: Connection
         stream: Stream
       }
     }
@@ -102,7 +102,7 @@ export async function tryExistingConnections(
 ): Promise<
   | undefined
   | {
-      conn: Connection,
+      conn: Connection
       stream: Stream
     }
 > {
@@ -180,7 +180,7 @@ async function establishNewConnection(
 ): Promise<
   | undefined
   | {
-      conn: Connection,
+      conn: Connection
       stream: Stream
     }
 > {
@@ -353,12 +353,10 @@ async function fetchCircuitAddressesAndDial(
 
   // Take all the known circuit addresses from the existing set of known addresses
 
-  let relayStruct:
-    | void
-    | {
-        conn: Connection,
-        stream: Stream
-      }
+  let relayStruct: void | {
+    conn: Connection
+    stream: Stream
+  }
 
   for await (const relay of queryDHT(libp2p, destination)) {
     // Make sure we don't use self as relay
