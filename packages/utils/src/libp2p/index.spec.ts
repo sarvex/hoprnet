@@ -1,11 +1,13 @@
 import assert from 'assert'
-import type { PeerId } from '@libp2p/interface-peer-id'
-import type { Connection, Stream } from '@libp2p/interface-connection'
-import type { Components } from '@libp2p/interfaces/components'
-import type { StreamHandler, IncomingStreamData } from '@libp2p/interface-registrar'
 import { peerIdFromString } from '@libp2p/peer-id'
 import { createSecp256k1PeerId, createEd25519PeerId } from '@libp2p/peer-id-factory'
 import { multiaddr } from '@multiformats/multiaddr'
+import { Uint8ArrayList } from 'uint8arraylist'
+
+import type { PeerId } from '@libp2p/interface-peer-id'
+import type { Connection, Stream, StreamStat } from '@libp2p/interface-connection'
+import type { Components } from '@libp2p/interfaces/components'
+import type { StreamHandler, IncomingStreamData } from '@libp2p/interface-registrar'
 
 import { defer, type DeferType } from '../async/index.js'
 import { u8aEquals } from '../u8a/index.js'
@@ -19,6 +21,46 @@ import {
   libp2pSendMessage,
   type LibP2PHandlerArgs
 } from './index.js'
+
+/**
+ * Base copied from
+ * https://github.com/ChainSafe/lodestar/blob/unstable/packages/beacon-node/test/unit/network/reqresp/utils.ts
+ *
+ * Useful to simulate a LibP2P stream source emitting prepared bytes
+ * and capture the response with a sink accessible via `this.resultChunks`
+ */
+class MockLibP2pStream implements Stream {
+  id = "mock";
+  stat = {
+    direction: "inbound",
+    timeline: {
+      open: Date.now(),
+    },
+  } as StreamStat;
+  metadata = {};
+  source: Stream["source"];
+  sink: Stream["sink"];
+  resultChunks: Uint8Array[] = [];
+
+  constructor(source: Stream["source"], sink: Stream["sink"]) {
+    this.source = source
+    this.sink = sink
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  close: Stream["close"] = () => {};
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  closeRead = (): void => {};
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  closeWrite = (): void => {};
+  reset: Stream["reset"] = () => this.close();
+  abort: Stream["abort"] = () => this.close();
+}
+
+function createStream(source: Stream["source"], sink: Stream["sink"]) {
+  return new MockLibP2pStream(source, sink);
+}
+
 
 describe(`test convertPubKeyFromPeerId`, function () {
   it(`should equal to a newly created pubkey from PeerId`, async function () {
@@ -94,6 +136,27 @@ function getFakeLibp2p(
       }
     | undefined
 ): Components {
+  const stream = createStream(
+(async function* (): AsyncIterable<Uint8ArrayList> {
+                      state?.waitUntilSend && (await state.waitUntilSend.promise)
+
+                      if (messages.msgToReplyWith) {
+                        yield new Uint8ArrayList(messages.msgToReplyWith)
+                      }
+                    })(),
+  async (source: AsyncIterable<Uint8ArrayList>) => {
+                      for await (const msg of source) {
+                        if (messages?.msgToReceive && u8aEquals(Uint8Array.from(msg.slice()), messages.msgToReceive)) {
+                          state?.msgReceived?.resolve()
+                        } else {
+                          state?.msgReceived?.reject()
+                        }
+
+                        await new Promise((resolve) => setTimeout(resolve, 50))
+                        state?.waitUntilSend?.resolve()
+                      }
+                    }
+  )
   return {
     getConnectionManager() {
       return {
@@ -105,27 +168,7 @@ function getFakeLibp2p(
             return Promise.resolve<Connection>({
               newStream: (protocol: string) =>
                 Promise.resolve({
-                  stream: {
-                    sink: async (source: AsyncIterable<Uint8Array>) => {
-                      for await (const msg of source) {
-                        if (messages?.msgToReceive && u8aEquals(Uint8Array.from(msg.slice()), messages.msgToReceive)) {
-                          state?.msgReceived?.resolve()
-                        } else {
-                          state?.msgReceived?.reject()
-                        }
-
-                        await new Promise((resolve) => setTimeout(resolve, 50))
-                        state?.waitUntilSend?.resolve()
-                      }
-                    },
-                    source: (async function* (): AsyncIterable<Uint8Array> {
-                      state?.waitUntilSend && (await state.waitUntilSend.promise)
-
-                      if (messages.msgToReplyWith) {
-                        yield messages.msgToReplyWith
-                      }
-                    })()
-                  } as Stream,
+                  stream,
                   protocol
                 }),
               remotePeer: destination
@@ -228,15 +271,11 @@ describe(`test libp2pSubscribe`, async function () {
       return new Promise((resolve) => setTimeout(resolve, 50, msgToReplyWith))
     }
 
-    const libp2p = {
-      registrar: {
-        async handle(protocols: string | string[], handlerFunction: StreamHandler) {
-          handlerFunction({
-            stream: {
-              source: (async function* (): AsyncIterable<Uint8Array> {
-                yield msgToReceive
+    const stream = createStream(
+              (async function* (): AsyncIterable<Uint8ArrayList> {
+                  yield new Uint8ArrayList(msgToReceive)
               })(),
-              sink: async (source: AsyncIterable<Uint8Array>) => {
+async (source: AsyncIterable<Uint8ArrayList>) => {
                 const msgs = []
                 for await (const msg of source) {
                   msgs.push(msg)
@@ -247,7 +286,13 @@ describe(`test libp2pSubscribe`, async function () {
                   msgReplied.reject()
                 }
               }
-            },
+    )
+
+    const libp2p = {
+      registrar: {
+        async handle(protocols: string | string[], handlerFunction: StreamHandler) {
+          handlerFunction({
+            stream,
             connection: {
               remotePeer
             } as Connection,
@@ -278,17 +323,17 @@ describe(`test libp2pSubscribe`, async function () {
       }
     }
 
+    const stream = createStream((async function* (): AsyncIterable<Uint8ArrayList> {
+                  yield new Uint8ArrayList(msgToReceive)
+                })(),
+                (() => {}) as any)
+
     const libp2pComponents = {
       getRegistrar() {
         return {
           async handle(protocols: string[], handlerFunction: (args: LibP2PHandlerArgs) => Promise<void>) {
             handlerFunction({
-              stream: {
-                source: (async function* (): AsyncIterable<Uint8Array> {
-                  yield msgToReceive
-                })(),
-                sink: (() => {}) as any
-              } as Stream,
+              stream,
               connection: {
                 remotePeer
               } as any,
