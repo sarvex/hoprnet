@@ -1,53 +1,10 @@
-import { createLibp2p, type Libp2p } from 'libp2p'
-import { tcp } from '@libp2p/tcp'
-import { mplex } from '@libp2p/mplex'
-import { noise } from '@chainsafe/libp2p-noise'
-import { kadDHT } from '@libp2p/kad-dht'
-import { multiaddr } from '@multiformats/multiaddr'
-
-import type { PeerId } from '@libp2p/interface-peer-id'
-
 import { createRelayerKey } from './relayCode.js'
 import { privKeyToPeerId } from './privKeyToPeerId.js'
+import { getNode } from './testHelpers.js'
 
 const peerA = privKeyToPeerId('0x06243fcfd7d7ba9364c9903b95cb8cfb3a3e6e95a80c96656598bda6942ae1c2')
 const peerB = privKeyToPeerId('0x0e5574d6fcb05bc06542daeaa231639d26753f366b02fdc072944e728cbd4647')
 const peerC = privKeyToPeerId('0x462684d27c3573981dd8b62ec4fbb92446dbb1797ef1278208f99216995015d5')
-
-/**
- * Creates and starts a minimal libp2p instance
- * @param id peerId of the node to create
- * @returns a started libp2p instance with a DHT
- */
-async function getNode(id: PeerId): Promise<Libp2p> {
-  const node = await createLibp2p({
-    addresses: {
-      listen: [multiaddr(`/ip4/0.0.0.0/tcp/0/p2p/${id.toString()}`).toString()]
-    },
-    peerId: id,
-    transports: [tcp()],
-    streamMuxers: [mplex()],
-    connectionEncryption: [noise()],
-    // @ts-ignore
-    dht: kadDHT({ clientMode: false, protocolPrefix: '/hopr', lan: true, pingTimeout: 1e3 }),
-    metrics: {
-      enabled: false
-    },
-    nat: {
-      enabled: false
-    },
-    relay: {
-      enabled: false
-    },
-    connectionManager: {
-      autoDial: true
-    }
-  })
-
-  await node.start()
-
-  return node
-}
 
 describe('relay code generation', function () {
   it('provide and fetch CID key', async function () {

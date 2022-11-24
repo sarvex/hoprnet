@@ -11,6 +11,7 @@ import { peerIdFromString } from '@libp2p/peer-id'
 import { abortableSource } from 'abortable-iterator'
 import { TimeoutController } from 'timeout-abort-controller'
 import { pipe } from 'it-pipe'
+import { Uint8ArrayList } from 'uint8arraylist'
 
 import { debug } from '../process/index.js'
 import { dial, DialOpts } from './dialHelper.js'
@@ -125,11 +126,7 @@ export async function libp2pSendMessage<T extends boolean>(
 
   if (includeReply) {
     try {
-      const result = await pipe(
-        // prettier-ignore
-        abortableSource([message], timeoutController.signal),
-        r.resp.stream,
-        async function collect(source: AsyncIterable<Uint8Array>) {
+      const sinkFun = async function collect(source: AsyncIterable<Uint8ArrayList>) {
           const vals: Uint8Array[] = []
           for await (const val of source) {
             // Convert from potential BufferList to Uint8Array
@@ -137,6 +134,11 @@ export async function libp2pSendMessage<T extends boolean>(
           }
           return vals
         }
+      const result = await pipe(
+        // prettier-ignore
+        abortableSource(new Uint8ArrayList(message), timeoutController.signal),
+        r.resp.stream,
+        sinkFun
       )
       return result as any
     } catch (err) {
@@ -150,8 +152,8 @@ export async function libp2pSendMessage<T extends boolean>(
     try {
       await pipe(
         // prettier-ignore
-        abortableSource([message], timeoutController.signal),
-        r.resp.stream
+        abortableSource(new Uint8ArrayList(message), timeoutController.signal),
+        r.resp.stream.sink
       )
     } catch (err) {
       throw Error(`Could not send message to ${destination.toString()} due to "${err?.message}".`)
@@ -174,7 +176,7 @@ type HandlerFunction<T> = (props: LibP2PHandlerArgs) => T
 type ErrHandler = (msg: any) => void
 
 function generateHandler<T extends boolean>(
-  handlerFunction: LibP2PHandlerFunction<T extends true ? Promise<Uint8Array> : Promise<void> | void>,
+  handlerFunction: LibP2PHandlerFunction<T extends true ? Promise<Uint8ArrayList> : Promise<void> | void>,
   errHandler: ErrHandler,
   includeReply: T
 ): HandlerFunction<T extends true ? Promise<void> : void> {
@@ -183,18 +185,19 @@ function generateHandler<T extends boolean>(
   if (includeReply) {
     return async function libP2PHandler(props: LibP2PHandlerArgs): Promise<void> {
       try {
-        await pipe(
-          // prettier-ignore
-          props.stream,
-          async function* pipeToHandler(source: AsyncIterable<Uint8Array>) {
+        const transformFun = async function* pipeToHandler(source: AsyncIterable<Uint8ArrayList>) {
             for await (const msg of source) {
               // Convert from potential BufferList to Uint8Array
               yield (await handlerFunction(
                 Uint8Array.from(msg.slice()),
                 props.connection.remotePeer
-              )) as Promise<Uint8Array>
+              )) as Promise<Uint8ArrayList>
             }
-          },
+          }
+        await pipe(
+          // prettier-ignore
+          props.stream,
+          transformFun,
           props.stream
         )
       } catch (err) {
@@ -237,7 +240,7 @@ function generateHandler<T extends boolean>(
 export async function libp2pSubscribe<T extends boolean>(
   libp2p: Libp2p,
   protocols: string | string[],
-  handler: LibP2PHandlerFunction<T extends true ? Promise<Uint8Array> : Promise<void> | void>,
+  handler: LibP2PHandlerFunction<T extends true ? Promise<Uint8ArrayList> : Promise<void> | void>,
   errHandler: ErrHandler,
   includeReply: T
 ): Promise<void> {

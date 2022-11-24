@@ -165,7 +165,7 @@ export type NodeStatus = 'UNINITIALIZED' | 'INITIALIZING' | 'RUNNING' | 'DESTROY
 
 export type Subscribe = ((
   protocols: string | string[],
-  handler: LibP2PHandlerFunction<Promise<Uint8Array>>,
+  handler: LibP2PHandlerFunction<Promise<Uint8ArrayList>>,
   includeReply: true,
   errHandler: (err: any) => void
 ) => void) &
@@ -306,7 +306,7 @@ class Hopr extends EventEmitter {
     // Subscribe to p2p events from libp2p. Wraps our instance of libp2p.
     const subscribe = (
       protocols: string | string[],
-      handler: LibP2PHandlerFunction<Promise<Uint8Array> | Promise<void> | void>,
+      handler: LibP2PHandlerFunction<Promise<Uint8ArrayList> | Promise<void> | void>,
       includeReply: boolean,
       errHandler: (err: any) => void
     ) => libp2pSubscribe(this.libp2p, protocols, handler, errHandler, includeReply)

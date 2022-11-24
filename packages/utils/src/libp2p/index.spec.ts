@@ -4,10 +4,11 @@ import { createSecp256k1PeerId, createEd25519PeerId } from '@libp2p/peer-id-fact
 import { multiaddr } from '@multiformats/multiaddr'
 import { Uint8ArrayList } from 'uint8arraylist'
 
+import type { Libp2p } from 'libp2p'
 import type { PeerId } from '@libp2p/interface-peer-id'
 import type { Connection, Stream, StreamStat } from '@libp2p/interface-connection'
-import type { Components } from '@libp2p/interfaces/components'
 import type { StreamHandler, IncomingStreamData } from '@libp2p/interface-registrar'
+import type { AbortOptions } from '@libp2p/interfaces'
 
 import { defer, type DeferType } from '../async/index.js'
 import { u8aEquals } from '../u8a/index.js'
@@ -21,6 +22,7 @@ import {
   libp2pSendMessage,
   type LibP2PHandlerArgs
 } from './index.js'
+import { getNode } from './testHelpers.js'
 
 /**
  * Base copied from
@@ -60,7 +62,6 @@ class MockLibP2pStream implements Stream {
 function createStream(source: Stream["source"], sink: Stream["sink"]) {
   return new MockLibP2pStream(source, sink);
 }
-
 
 describe(`test convertPubKeyFromPeerId`, function () {
   it(`should equal to a newly created pubkey from PeerId`, async function () {
@@ -122,7 +123,7 @@ describe(`test getB58String`, function () {
   })
 })
 
-function getFakeLibp2p(
+async function getFakeLibp2p(
   state:
     | {
         msgReceived?: DeferType<void>
@@ -135,7 +136,7 @@ function getFakeLibp2p(
         msgToReplyWith?: Uint8Array
       }
     | undefined
-): Components {
+): Promise<Libp2p> {
   const stream = createStream(
 (async function* (): AsyncIterable<Uint8ArrayList> {
                       state?.waitUntilSend && (await state.waitUntilSend.promise)
@@ -157,28 +158,37 @@ function getFakeLibp2p(
                       }
                     }
   )
-  return {
-    getConnectionManager() {
-      return {
+
+  const components = {
+      connectionManager: {
         getConnections(_peer: PeerId): Connection[] {
           return []
         },
         dialer: {
-          dial(destination: PeerId, ..._opts: any[]): Promise<Connection> {
-            return Promise.resolve<Connection>({
-              newStream: (protocol: string) =>
-                Promise.resolve({
-                  stream,
-                  protocol
-                }),
-              remotePeer: destination
-            } as Connection)
+          async dial(remotePeer: PeerId, ..._opts: any[]): Promise<Connection> {
+            const conn = {
+              id: Date.now().toString(),
+              stat: {
+                direction: "inbound",
+                timeline: {
+                  open: Date.now(),
+                },
+                status: "OPEN"
+              },
+              tags: [],
+              streams: [],
+              remoteAddr: multiaddr(),
+              remotePeer,
+              newStream: async (_protocol: string | string[], _options?: AbortOptions) => stream,
+              addStream: (_stream: Stream) => { },
+              removeStream: (_id: string) => { },
+              close: async () => { }
+            } as Connection
+            return conn
           }
         }
-      } as Components['connectionManager']
     },
-    getPeerStore() {
-      return {
+    peerStore: {
         addressBook: {
           async get(_peer: PeerId) {
             return [
@@ -189,9 +199,11 @@ function getFakeLibp2p(
             ]
           }
         }
-      } as Components['peerStore']
     }
-  } as Components
+  }
+
+  const peer = await getNode(undefined, undefined, undefined, true, components)
+  return peer
 }
 
 describe(`test libp2pSendMessage`, function () {
@@ -201,7 +213,7 @@ describe(`test libp2pSendMessage`, function () {
     const destination = await createSecp256k1PeerId()
     const msgReceived = defer<void>()
 
-    const libp2pComponents = getFakeLibp2p(
+    const libp2p = await getFakeLibp2p(
       {
         msgReceived
       },
@@ -210,7 +222,7 @@ describe(`test libp2pSendMessage`, function () {
       }
     )
 
-    await libp2pSendMessage(libp2pComponents, destination, ['demo protocol'], msgToReceive, false, {
+    await libp2pSendMessage(libp2p, destination, ['demo protocol'], msgToReceive, false, {
       timeout: 5000
     })
 
@@ -229,7 +241,7 @@ describe(`test libp2pSendMessage with response`, function () {
 
     const waitUntilSend = defer<void>()
 
-    const libp2pComponents = getFakeLibp2p(
+    const libp2p = await getFakeLibp2p(
       {
         waitUntilSend,
         msgReceived
@@ -242,7 +254,7 @@ describe(`test libp2pSendMessage with response`, function () {
 
     const results = await Promise.all([
       msgReceived.promise,
-      libp2pSendMessage(libp2pComponents, destination, ['demo protocol'], msgToReceive, true, {
+      libp2pSendMessage(libp2p, destination, ['demo protocol'], msgToReceive, true, {
         timeout: 5000
       })
     ])
@@ -261,14 +273,14 @@ describe(`test libp2pSubscribe`, async function () {
     let msgReceived = defer<void>()
     let msgReplied = defer<void>()
 
-    const fakeOnMessage = async (msg: Uint8Array): Promise<Uint8Array> => {
+    const fakeOnMessage = async (msg: Uint8Array): Promise<Uint8ArrayList> => {
       if (u8aEquals(msg, msgToReceive)) {
         msgReceived.resolve()
       } else {
         msgReceived.reject()
       }
 
-      return new Promise((resolve) => setTimeout(resolve, 50, msgToReplyWith))
+      return new Promise((resolve) => setTimeout(resolve, 50, new Uint8ArrayList(msgToReplyWith)))
     }
 
     const stream = createStream(
@@ -288,9 +300,9 @@ async (source: AsyncIterable<Uint8ArrayList>) => {
               }
     )
 
-    const libp2p = {
+    const components = {
       registrar: {
-        async handle(protocols: string | string[], handlerFunction: StreamHandler) {
+        handle: async function (protocols: string | string[], handlerFunction: StreamHandler) {
           handlerFunction({
             stream,
             connection: {
@@ -302,6 +314,7 @@ async (source: AsyncIterable<Uint8ArrayList>) => {
       }
     }
 
+    const libp2p = await getNode(undefined, undefined, undefined, true, components)
     libp2pSubscribe(libp2p, ['demo protocol'], fakeOnMessage, () => {}, true)
 
     await Promise.all([msgReceived.promise, msgReplied.promise])
@@ -328,10 +341,9 @@ async (source: AsyncIterable<Uint8ArrayList>) => {
                 })(),
                 (() => {}) as any)
 
-    const libp2pComponents = {
-      getRegistrar() {
-        return {
-          async handle(protocols: string[], handlerFunction: (args: LibP2PHandlerArgs) => Promise<void>) {
+                const components = {
+                  registrar: {
+          handle: async function (protocols: string[], handlerFunction: (args: LibP2PHandlerArgs) => Promise<void>) {
             handlerFunction({
               stream,
               connection: {
@@ -340,11 +352,12 @@ async (source: AsyncIterable<Uint8ArrayList>) => {
               protocol: protocols[0]
             })
           }
-        } as Components['registrar']
-      }
-    } as Components
+        }
+    }
 
-    libp2pSubscribe(libp2pComponents, ['demo protocol'], fakeOnMessage, () => {}, false)
+
+    const libp2p = await getNode(undefined, undefined, undefined, true, components)
+    libp2pSubscribe(libp2p, ['demo protocol'], fakeOnMessage, () => {}, false)
 
     await msgReceived.promise
   })
