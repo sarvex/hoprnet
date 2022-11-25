@@ -4,9 +4,15 @@ import { decode, constants, createMessage, createTransaction, validateFingerprin
 // @ts-ignore untyped module
 import isStun from 'is-stun'
 
-import type { Socket, RemoteInfo } from 'dgram'
-import { Multiaddr } from '@multiformats/multiaddr'
+// @ts-ignore untyped module
+import retimer from 'retimer'
+
+import { multiaddr } from '@multiformats/multiaddr'
 import debug from 'debug'
+
+import type { Socket, RemoteInfo } from 'dgram'
+import type { Multiaddr } from '@multiformats/multiaddr'
+
 import {
   randomSubset,
   ipToU8aAddress,
@@ -16,8 +22,6 @@ import {
   u8aToNumber
 } from '@hoprnet/hopr-utils'
 import { CODE_IP4, CODE_IP6, CODE_DNS4, CODE_DNS6 } from '../constants.js'
-// @ts-ignore untyped module
-import retimer from 'retimer'
 
 const log = debug('hopr-connect:stun:error')
 const error = debug('hopr-connect:stun:error')
@@ -33,13 +37,13 @@ export const STUN_TIMEOUT = 1000
 
 // Only used to determine the external address of the bootstrap server
 export const PUBLIC_STUN_SERVERS = [
-  new Multiaddr(`/dns4/stun.l.google.com/udp/19302`),
-  new Multiaddr(`/dns4/stun1.l.google.com/udp/19302`),
-  new Multiaddr(`/dns4/stun2.l.google.com/udp/19302`),
-  new Multiaddr(`/dns4/stun3.l.google.com/udp/19302`),
-  new Multiaddr(`/dns4/stun4.l.google.com/udp/19302`),
-  new Multiaddr(`/dns4/stun.sipgate.net/udp/3478`),
-  new Multiaddr(`/dns4/stun.callwithus.com/udp/3478`)
+  multiaddr(`/dns4/stun.l.google.com/udp/19302`),
+  multiaddr(`/dns4/stun1.l.google.com/udp/19302`),
+  multiaddr(`/dns4/stun2.l.google.com/udp/19302`),
+  multiaddr(`/dns4/stun3.l.google.com/udp/19302`),
+  multiaddr(`/dns4/stun4.l.google.com/udp/19302`),
+  multiaddr(`/dns4/stun.sipgate.net/udp/3478`),
+  multiaddr(`/dns4/stun.callwithus.com/udp/3478`)
 ]
 
 export const DEFAULT_PARALLEL_STUN_CALLS = 4

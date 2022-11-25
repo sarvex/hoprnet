@@ -44,17 +44,6 @@ export interface PublicNodesEmitter {
 
 export type StreamType = Uint8Array
 
-export type StreamSourceAsync<T = StreamType> = AsyncIterable<T>
-export type StreamSource<T = StreamType> = AsyncIterable<T> | Iterable<T>
-export type StreamSink<T = StreamType> = (source: StreamSource<T>) => Promise<void>
-
-export type Stream<T = StreamType> = {
-  sink: StreamSink<T>
-  source: StreamSource<T>
-}
-
-export type StreamResult = IteratorResult<StreamType, any>
-
 export type Environment = {
   id: string
   versionRange: string
@@ -101,4 +90,13 @@ export type HoprConnectTestingOptions = {
   __runningLocally?: boolean
   // Disable UPNP support
   __noUPNP?: boolean
+}
+
+export type Libp2pComponents = {
+  peerId: PeerId
+  peerStore: PeerStore
+  registrar: Registrar
+  connectionManager: ConnectionManager
+  upgrader: Upgrader
+  addressManager: AddressManager
 }

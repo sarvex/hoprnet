@@ -1,15 +1,18 @@
-import { RelayConnection, RelayConnectionInterface, statusMessagesCompare } from './connection.js'
 import assert from 'assert'
-import { defer, u8aEquals } from '@hoprnet/hopr-utils'
-
-import type { PeerId } from '@libp2p/interface-peer-id'
 import { EventEmitter, once } from 'events'
 import { pair } from 'it-pair'
 import { duplexPair } from 'it-pair/duplex'
-import { ConnectionStatusMessages, RelayPrefix, StatusMessages } from '../constants.js'
 import { handshake } from 'it-handshake'
-import type { StreamType } from '../types.js'
+
+import type { PeerId } from '@libp2p/interface-peer-id'
+
+import { defer, u8aEquals } from '@hoprnet/hopr-utils'
+
+import { RelayConnection, RelayConnectionInterface, statusMessagesCompare } from './connection.js'
+import { ConnectionStatusMessages, RelayPrefix, StatusMessages } from '../constants.js'
 import { createPeerId } from '../base/utils.spec.js'
+
+import type { StreamType } from '../types.js'
 import type { ConnectComponents } from '../components.js'
 
 class WebRTC extends EventEmitter {

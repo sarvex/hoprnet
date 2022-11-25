@@ -1,5 +1,6 @@
-import { expandVars } from './utils.js'
 import assert from 'assert'
+
+import { expandVars } from './utils.js'
 
 describe('utils', () => {
   it('expands vars', async () => {

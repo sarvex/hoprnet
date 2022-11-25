@@ -1,17 +1,18 @@
-import type { HoprConnectTestingOptions } from '../types.js'
-import type { PeerId } from '@libp2p/interface-peer-id'
+import assert from 'assert'
+import EventEmitter from 'events'
 
 import { handshake } from 'it-handshake'
-import { Multiaddr } from '@multiformats/multiaddr'
+import { multiaddr } from '@multiformats/multiaddr'
 
-import EventEmitter from 'events'
-import assert from 'assert'
+import type { HoprConnectTestingOptions } from '../types.js'
+import type { PeerId } from '@libp2p/interface-peer-id'
+import type { Stream } from '@libp2p/interface-connection'
 
 import { Relay } from './index.js'
 import { privKeyToPeerId, stringToU8a, u8aEquals } from '@hoprnet/hopr-utils'
+import { createFakeLibp2p, createFakeNetwork } from '../utils/libp2p.mock.spec.js'
+
 import type { ConnectComponents } from '../components.js'
-import { createFakeComponents, createFakeNetwork } from '../utils/libp2p.mock.spec.js'
-import { Stream } from '../types.js'
 
 const initiator = privKeyToPeerId(stringToU8a('0xa889bad3e2a31cceff4faccdd374af67db485ac0e05e7e654530aff0da5199f7'))
 const relay = privKeyToPeerId(stringToU8a('0xcd1fb76053833d9bb5b3ff243b2d17b96dc5ad7cc09b33c4cf77ba83c297443f'))
@@ -21,7 +22,7 @@ function msgToEchoedMessage(message: string): Uint8Array {
   return new TextEncoder().encode(`Echo: <${message}>`)
 }
 
-async function onInboundStream(stream: Stream) {
+async function onIncomingStream(stream: Stream) {
   const shaker = handshake(stream)
   const message = new TextDecoder().decode(((await shaker.read()) as Uint8Array).slice())
 
@@ -57,9 +58,9 @@ async function getPeer(
   const relay = new Relay({ environment: `testingEnvironment` }, testingOptions ?? { __noWebRTCUpgrade: true })
 
   relay.init(
-    await createFakeComponents(peerId, network, {
-      listeningAddrs: [new Multiaddr(`/ip4/127.0.0.1/tcp/${port}`)],
-      onIncomingStream: onInboundStream
+    await createFakeLibp2p(peerId, network, {
+      listeningAddrs: [multiaddr(`/ip4/127.0.0.1/tcp/${port}`)],
+      onIncomingStream
     })
   )
   relay.initConnect(createFakeConnectComponents())
@@ -77,16 +78,16 @@ describe('test relay', function () {
     const Bob = await getPeer(relay, network, 2)
     const Charly = await getPeer(counterparty, network, 3)
 
-    await Alice.getComponents()
-      .getPeerStore()
-      .addressBook.add(Bob.getComponents().getPeerId(), Bob.getComponents().getTransportManager().getAddrs())
+    await Alice.components
+      .peerStore
+      .addressBook.add(Bob.components.peerId, Bob.components.getTransportManager().getAddrs())
 
-    await Bob.getComponents()
-      .getPeerStore()
-      .addressBook.add(Charly.getComponents().getPeerId(), Charly.getComponents().getTransportManager().getAddrs())
+    await Bob.components
+      .peerStore
+      .addressBook.add(Charly.components.peerId, Charly.components.getTransportManager().getAddrs())
 
     for (let i = 0; i < 5; i++) {
-      const conn = await Alice.connect(Bob.getComponents().getPeerId(), Charly.getComponents().getPeerId(), () => {})
+      const conn = await Alice.connect(Bob.components.peerId, Charly.components.peerId, () => {})
 
       assert(conn != undefined, `Should be able to connect`)
       const shaker = handshake(conn as any)
@@ -118,16 +119,16 @@ describe('test relay', function () {
     const Bob = await getPeer(relay, network, 2)
     const Charly = await getPeer(counterparty, network, 3)
 
-    await Alice.getComponents()
-      .getPeerStore()
-      .addressBook.add(Bob.getComponents().getPeerId(), Bob.getComponents().getTransportManager().getAddrs())
+    await Alice.components
+      .peerStore
+      .addressBook.add(Bob.components.peerId, Bob.components.getTransportManager().getAddrs())
 
-    await Bob.getComponents()
-      .getPeerStore()
-      .addressBook.add(Charly.getComponents().getPeerId(), Charly.getComponents().getTransportManager().getAddrs())
+    await Bob.components
+      .peerStore
+      .addressBook.add(Charly.components.peerId, Charly.components.getTransportManager().getAddrs())
 
     for (let i = 0; i < 3; i++) {
-      const conn = await Alice.connect(Bob.getComponents().getPeerId(), Charly.getComponents().getPeerId(), () => {})
+      const conn = await Alice.connect(Bob.components.peerId, Charly.components.peerId, () => {})
 
       assert(conn != undefined, `Should be able to connect`)
       const shaker = handshake(conn as any)

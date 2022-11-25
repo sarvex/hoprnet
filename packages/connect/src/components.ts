@@ -1,22 +1,14 @@
 // Use errCode library to add metadata to errors and align with libp2p transport interface
 import errCode from 'err-code'
 
+import { isStartable } from '@libp2p/interfaces/startable'
+import type { Startable } from '@libp2p/interfaces/startable'
+
 import type { WebRTCUpgrader } from './webrtc/upgrader.js'
 import type { UpnpManager } from './base/upnp.js'
 import type { Filter } from './filter.js'
 import type { EntryNodes } from './base/entry.js'
 import type { Relay } from './relay/index.js'
-
-import { isInitializable, type Initializable, type Components } from '@libp2p/interfaces/components'
-import { type Startable, isStartable } from '@libp2p/interfaces/startable'
-
-export interface ConnectInitializable {
-  initConnect: (components: ConnectComponents) => void
-}
-
-export function isConnectInitializable(obj: any): obj is ConnectInitializable {
-  return obj != null && typeof obj.initConnect === 'function'
-}
 
 export interface ConnectComponentsInit {
   addressFilter?: Filter
@@ -26,49 +18,17 @@ export interface ConnectComponentsInit {
   webRTCUpgrader?: WebRTCUpgrader
 }
 
-export class ConnectComponents implements Startable, Initializable {
-  private addressFilter: Filter | undefined
-  private entryNodes: EntryNodes | undefined
-  private relay: Relay | undefined
-  private upnpManager: UpnpManager | undefined
-  private webRTCUpgrader: WebRTCUpgrader | undefined
+export class ConnectComponents implements Startable {
 
+  private readonly components: ConnectComponentsInit
   private _isStarted: boolean
-
-  // Pass libp2p internals
-  public init(components: Components) {
-    for (const module of Object.values(this)) {
-      if (isInitializable(module)) {
-        module?.init(components)
-      }
-    }
-  }
 
   constructor(init: ConnectComponentsInit) {
     this._isStarted = false
-
-    if (init.addressFilter != null) {
-      this.setAddressFilter(init.addressFilter)
-    }
-
-    if (init.entryNodes != null) {
-      this.setEntryNodes(init.entryNodes)
-    }
-
-    if (init.relay != null) {
-      this.setRelay(init.relay)
-    }
-
-    if (init.upnpManager != null) {
-      this.setUpnpManager(init.upnpManager)
-    }
-
-    if (init.webRTCUpgrader != null) {
-      this.setWebRTCUpgrader(init.webRTCUpgrader)
-    }
+    this.components = init
   }
 
-  public isStarted() {
+  public isStarted(): boolean {
     return this._isStarted
   }
 
@@ -146,85 +106,5 @@ export class ConnectComponents implements Startable, Initializable {
     }
 
     await Promise.all(promises)
-  }
-
-  setAddressFilter(addressFilter: Filter) {
-    if (isConnectInitializable(addressFilter)) {
-      addressFilter.initConnect(this)
-    }
-
-    this.addressFilter = addressFilter
-  }
-
-  getAddressFilter(): Filter {
-    if (this.addressFilter == null) {
-      throw errCode(new Error('addressManager not set'), 'ERR_SERVICE_MISSING')
-    }
-
-    return this.addressFilter
-  }
-
-  setEntryNodes(entryNodes: EntryNodes) {
-    if (isConnectInitializable(entryNodes)) {
-      entryNodes.initConnect(this)
-    }
-
-    this.entryNodes = entryNodes
-  }
-
-  getEntryNodes(): EntryNodes {
-    if (this.entryNodes == null) {
-      throw errCode(new Error('entryNodes not set'), 'ERR_SERVICE_MISSING')
-    }
-
-    return this.entryNodes
-  }
-
-  setRelay(relay: Relay) {
-    if (isConnectInitializable(relay)) {
-      relay.initConnect(this)
-    }
-
-    this.relay = relay
-  }
-
-  getRelay(): Relay {
-    if (this.relay == null) {
-      throw errCode(new Error('relay not set'), 'ERR_SERVICE_MISSING')
-    }
-
-    return this.relay
-  }
-
-  setUpnpManager(upnpManager: UpnpManager) {
-    if (isConnectInitializable(upnpManager)) {
-      upnpManager.initConnect(this)
-    }
-
-    this.upnpManager = upnpManager
-  }
-
-  getUpnpManager(): UpnpManager {
-    if (this.upnpManager == null) {
-      throw errCode(new Error('webRTCUpgrader not set'), 'ERR_SERVICE_MISSING')
-    }
-
-    return this.upnpManager
-  }
-
-  setWebRTCUpgrader(webRTCUpgrader: WebRTCUpgrader) {
-    if (isConnectInitializable(webRTCUpgrader)) {
-      webRTCUpgrader.initConnect(this)
-    }
-
-    this.webRTCUpgrader = webRTCUpgrader
-  }
-
-  getWebRTCUpgrader(): WebRTCUpgrader {
-    if (this.webRTCUpgrader == null) {
-      throw errCode(new Error('webRTCUpgrader not set'), 'ERR_SERVICE_MISSING')
-    }
-
-    return this.webRTCUpgrader
   }
 }

@@ -1,15 +1,22 @@
-import { once, type EventEmitter } from 'events'
-import { handleStunRequest } from './stun.js'
-import type { PeerStoreType } from '../types.js'
-import { createSocket, type RemoteInfo, type Socket } from 'dgram'
-import { type DeferType, privKeyToPeerId, u8aToHex } from '@hoprnet/hopr-utils'
-import { randomBytes } from 'crypto'
-import type { PeerId } from '@libp2p/interface-peer-id'
-import { peerIdFromBytes } from '@libp2p/peer-id'
-import { Multiaddr } from '@multiformats/multiaddr'
-import { CODE_P2P } from '../constants.js'
 import { isIPv6 } from 'net'
 import { lookup } from 'dns'
+import { once } from 'events'
+import { multiaddr } from '@multiformats/multiaddr'
+import { createSocket } from 'dgram'
+import { randomBytes } from 'crypto'
+import { peerIdFromBytes } from '@libp2p/peer-id'
+
+import type { EventEmitter } from 'events'
+import type { RemoteInfo, Socket } from 'dgram'
+import type { PeerId } from '@libp2p/interface-peer-id'
+
+import { privKeyToPeerId, u8aToHex } from '@hoprnet/hopr-utils'
+import type { DeferType}  from '@hoprnet/hopr-utils'
+
+import { handleStunRequest } from './stun.js'
+import { CODE_P2P } from '../constants.js'
+
+import type { PeerStoreType } from '../types.js'
 
 interface Listening<ListenOpts> extends EventEmitter {
   listen: (opts: ListenOpts) => void
@@ -108,7 +115,7 @@ export function bindToUdpSocket(port?: number): Promise<Socket> {
  * @returns a peerStoreEntry
  */
 export function getPeerStoreEntry(addr: string, id = createPeerId()): PeerStoreType {
-  let ma = new Multiaddr(addr)
+  let ma = multiaddr(addr)
   const tuples = ma.tuples()
   const index = tuples.findIndex((val) => val[0] == CODE_P2P)
 

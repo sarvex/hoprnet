@@ -1,4 +1,4 @@
-import { Multiaddr } from '@multiformats/multiaddr'
+import { multiaddr } from '@multiformats/multiaddr'
 import assert from 'assert'
 
 import { privKeyToPeerId } from '@hoprnet/hopr-utils'
@@ -9,24 +9,24 @@ const RELAY = privKeyToPeerId('0x152c95bd36e6ada51309558756d5f901853d45ab94336a0
 
 describe(`test util functions`, function () {
   it('relay extraction from relay address', function () {
-    const extracted = relayFromRelayAddress(new Multiaddr(`/p2p/${RELAY.toString()}/p2p-circuit`))
+    const extracted = relayFromRelayAddress(multiaddr(`/p2p/${RELAY.toString()}/p2p-circuit`))
 
     assert(extracted.equals(RELAY))
 
     // Incorrect size
-    assert.throws(() => relayFromRelayAddress(new Multiaddr(`/p2p/${SELF.toString()}`)))
+    assert.throws(() => relayFromRelayAddress(multiaddr(`/p2p/${SELF.toString()}`)))
 
     // Incorrect protocol
-    assert.throws(() => relayFromRelayAddress(new Multiaddr(`/ip4/127.0.0.1`)))
+    assert.throws(() => relayFromRelayAddress(multiaddr(`/ip4/127.0.0.1`)))
 
     // Incorrect size and missing protocol
-    assert.throws(() => relayFromRelayAddress(new Multiaddr(`/p2p/${SELF.toString()}`)))
+    assert.throws(() => relayFromRelayAddress(multiaddr(`/p2p/${SELF.toString()}`)))
   })
 
   it('Node.js AddressInfo to Multiaddr', function () {
     const tests = [
       [
-        new Multiaddr(`/ip4/127.0.0.1/tcp/12345`),
+        multiaddr(`/ip4/127.0.0.1/tcp/12345`),
         nodeToMultiaddr({
           address: '127.0.0.1',
           port: 12345,
@@ -35,7 +35,7 @@ describe(`test util functions`, function () {
       ],
       // Accept any *any* address
       [
-        new Multiaddr(`/ip4/0.0.0.0/tcp/12345`),
+        multiaddr(`/ip4/0.0.0.0/tcp/12345`),
         nodeToMultiaddr({
           address: '::',
           port: 12345,
@@ -43,7 +43,7 @@ describe(`test util functions`, function () {
         })
       ],
       [
-        new Multiaddr(`/ip4/0.0.0.0/tcp/12345`),
+        multiaddr(`/ip4/0.0.0.0/tcp/12345`),
         nodeToMultiaddr({
           address: '0.0.0.0',
           port: 12345,
@@ -51,7 +51,7 @@ describe(`test util functions`, function () {
         })
       ],
       [
-        new Multiaddr(`/ip6/::1/tcp/12345`),
+        multiaddr(`/ip6/::1/tcp/12345`),
         nodeToMultiaddr({
           address: '::1',
           port: 12345,
@@ -60,7 +60,7 @@ describe(`test util functions`, function () {
       ],
       // Accecpt any *any* address
       [
-        new Multiaddr(`/ip6/::/tcp/12345`),
+        multiaddr(`/ip6/::/tcp/12345`),
         nodeToMultiaddr({
           address: '0.0.0.0',
           port: 12345,
@@ -68,7 +68,7 @@ describe(`test util functions`, function () {
         })
       ],
       [
-        new Multiaddr(`/ip6/::/tcp/12345`),
+        multiaddr(`/ip6/::/tcp/12345`),
         nodeToMultiaddr({
           address: '::',
           port: 12345,

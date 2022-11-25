@@ -1,14 +1,15 @@
 import path from 'path'
 import { mkdir } from 'fs/promises'
-
-import { type Libp2p, createLibp2p } from 'libp2p'
+import { createLibp2p } from 'libp2p'
 import { LevelDatastore } from 'datastore-level'
-import type { Multiaddr } from '@multiformats/multiaddr'
-import { Mplex } from '@libp2p/mplex'
-import { KadDHT } from '@libp2p/kad-dht'
-import { Noise } from '@chainsafe/libp2p-noise'
-import type { PeerId } from '@libp2p/interface-peer-id'
+import { mplex } from '@libp2p/mplex'
+import { kadDHT } from '@libp2p/kad-dht'
+import { noise } from '@chainsafe/libp2p-noise'
 import { keysPBM } from '@libp2p/crypto/keys'
+
+import type { Libp2p } from 'libp2p'
+import type { Multiaddr } from '@multiformats/multiaddr'
+import type { PeerId } from '@libp2p/interface-peer-id'
 import type { AddressSorter, Address } from '@libp2p/interfaces/peer-store'
 
 import { HoprConnect, compareAddressesLocalMode, type PublicNodesEmitter } from '@hoprnet/hopr-connect'
@@ -115,10 +116,10 @@ export async function createLibp2pInstance(
           }
         })
       ],
-      streamMuxers: [new Mplex()],
-      connectionEncryption: [new Noise()],
+      streamMuxers: [mplex()],
+      connectionEncryption: [noise()],
       // @ts-ignore forked DHT
-      dht: new KadDHT({
+      dht: kadDHT({
         // Protocol prefixes require a trailing slash
         // @TODO disabled for compatibility reasons
         // protocolPrefix: `/${protocolPrefix}`,

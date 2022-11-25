@@ -1,13 +1,13 @@
+import assert from 'assert'
+import { Writable } from 'stream'
 import { createServer, type Socket, type AddressInfo } from 'net'
 import { setTimeout as setTimeoutPromise } from 'timers/promises'
+import { multiaddr } from '@multiformats/multiaddr'
+
+import { u8aEquals, defer } from '@hoprnet/hopr-utils'
 
 import { createTCPConnection, fromSocket } from './tcp.js'
-import { Multiaddr } from '@multiformats/multiaddr'
-import { u8aEquals, defer } from '@hoprnet/hopr-utils'
-import assert from 'assert'
-
 import { waitUntilListening, stopNode } from './utils.spec.js'
-import { Writable } from 'stream'
 
 describe('test TCP connection', function () {
   it('should test TCPConnection against Node.js APIs', async function () {
@@ -30,7 +30,7 @@ describe('test TCP connection', function () {
     const closePromise = defer<void>()
 
     const conn = await createTCPConnection(
-      new Multiaddr(`/ip4/127.0.0.1/tcp/${(server.address() as AddressInfo).port}`),
+      multiaddr(`/ip4/127.0.0.1/tcp/${(server.address() as AddressInfo).port}`),
       () => {
         closePromise.resolve()
       }
@@ -68,7 +68,7 @@ describe('test TCP connection', function () {
 
     await assert.rejects(
       async () => {
-        await createTCPConnection(new Multiaddr(`/ip4/127.0.0.1/tcp/${INVALID_PORT}`), () => {})
+        await createTCPConnection(multiaddr(`/ip4/127.0.0.1/tcp/${INVALID_PORT}`), () => {})
       },
       {
         name: 'Error',
@@ -97,7 +97,7 @@ describe('test TCP connection', function () {
     const abort = new AbortController()
 
     const conn = await createTCPConnection(
-      new Multiaddr(`/ip4/127.0.0.1/tcp/${(server.address() as AddressInfo).port}`),
+      multiaddr(`/ip4/127.0.0.1/tcp/${(server.address() as AddressInfo).port}`),
       () => {},
       {
         signal: abort.signal

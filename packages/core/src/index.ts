@@ -1,25 +1,28 @@
 import { setImmediate } from 'timers/promises'
 import EventEmitter from 'events'
-
 import { protocols, Multiaddr } from '@multiformats/multiaddr'
-
-import type BN from 'bn.js'
 import { keysPBM } from '@libp2p/crypto/keys'
 import { createHash } from 'crypto'
 import secp256k1 from 'secp256k1'
-import type { Libp2p } from 'libp2p'
-import type { Connection } from '@libp2p/interface-connection'
-import type { Peer } from '@libp2p/interface-peer-store'
-import type { PeerId } from '@libp2p/interface-peer-id'
-import { compareAddressesLocalMode, compareAddressesPublicMode, type HoprConnectConfig } from '@hoprnet/hopr-connect'
 
 // @ts-ignore untyped library
 import retimer from 'retimer'
 
+import type { Libp2p } from 'libp2p'
+import type BN from 'bn.js'
+import type { Connection } from '@libp2p/interface-connection'
+import type { Peer } from '@libp2p/interface-peer-store'
+import type { PeerId } from '@libp2p/interface-peer-id'
+
+import { compareAddressesLocalMode, compareAddressesPublicMode } from '@hoprnet/hopr-connect'
+
+import type { HoprConnectConfig } from '@hoprnet/hopr-connect'
+
 import { PACKET_SIZE, INTERMEDIATE_HOPS, VERSION, FULL_VERSION } from './constants.js'
 
 import AccessControl from './network/access-control.js'
-import NetworkPeers, { type Entry, NetworkPeersOrigin } from './network/network-peers.js'
+import NetworkPeers, { NetworkPeersOrigin } from './network/network-peers.js'
+import type { Entry } from './network/network-peers.js'
 import Heartbeat, { NetworkHealthIndicator } from './network/heartbeat.js'
 
 import { findPath } from './path/index.js'
@@ -44,29 +47,38 @@ import {
   convertPubKeyFromPeerId,
   getBackoffRetryTimeout,
   getBackoffRetries,
-  type LibP2PHandlerFunction,
-  type AcknowledgedTicket,
-  type ChannelEntry,
-  type Address,
-  type DialOpts,
-  type Hash,
-  type HalfKeyChallenge,
-  type Ticket,
-  type HoprDB,
   create_gauge,
   create_multi_gauge,
   create_counter,
   create_histogram_with_buckets
 } from '@hoprnet/hopr-utils'
-import HoprCoreEthereum, { type Indexer } from '@hoprnet/hopr-core-ethereum'
+
+import HoprCoreEthereum from '@hoprnet/hopr-core-ethereum'
+import type { Indexer } from '@hoprnet/hopr-core-ethereum'
+
+import type {
+  LibP2PHandlerFunction,
+  AcknowledgedTicket,
+  ChannelEntry,
+  Address,
+  DialOpts,
+  Hash,
+  HalfKeyChallenge,
+  Ticket,
+  HoprDB,
+} from '@hoprnet/hopr-utils'
 
 import {
-  type StrategyTickResult,
-  type ChannelStrategyInterface,
   PassiveStrategy,
   PromiscuousStrategy,
   SaneDefaults
 } from './channel-strategy.js'
+
+import type {
+  StrategyTickResult,
+  ChannelStrategyInterface
+} from './channel-strategy.js'
+
 
 import { AcknowledgementInteraction } from './interactions/packet/acknowledgement.js'
 import { PacketForwardInteraction } from './interactions/packet/forward.js'

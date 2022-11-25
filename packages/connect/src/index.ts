@@ -1,17 +1,17 @@
-import type { Multiaddr } from '@multiformats/multiaddr'
-import type { PeerId } from '@libp2p/interface-peer-id'
-import type { Initializable, Components } from '@libp2p/interfaces/components'
-import type { Startable } from '@libp2p/interfaces/startable'
-import type { Connection, MultiaddrConnection } from '@libp2p/interface-connection'
-import { CustomEvent } from '@libp2p/interfaces/events'
-
 import errCode from 'err-code'
 import Debug from 'debug'
-import { CODE_DNS4, CODE_DNS6, CODE_IP4, CODE_IP6, CODE_P2P } from './constants.js'
-
-import { peerIdFromBytes } from '@libp2p/peer-id'
-import { type CreateListenerOptions, type DialOptions, symbol, type Transport } from '@libp2p/interface-transport'
 import chalk from 'chalk'
+import { CustomEvent } from '@libp2p/interfaces/events'
+import { peerIdFromBytes } from '@libp2p/peer-id'
+import { symbol } from '@libp2p/interface-transport'
+
+import type { Multiaddr } from '@multiformats/multiaddr'
+import type { PeerId } from '@libp2p/interface-peer-id'
+import type { Startable } from '@libp2p/interfaces/startable'
+import type { Connection, MultiaddrConnection } from '@libp2p/interface-connection'
+import type { CreateListenerOptions, DialOptions, Transport } from '@libp2p/interface-transport'
+
+import { CODE_DNS4, CODE_DNS6, CODE_IP4, CODE_IP6, CODE_P2P } from './constants.js'
 import { createTCPConnection, Listener } from './base/index.js'
 
 // Do not type-check JSON files
@@ -19,10 +19,14 @@ import { createTCPConnection, Listener } from './base/index.js'
 import pkg from '../package.json' assert { type: 'json' }
 
 import {
-  type PublicNodesEmitter,
-  type HoprConnectOptions,
-  type HoprConnectTestingOptions,
   PeerConnectionType
+} from './types.js'
+
+import type {
+  PublicNodesEmitter,
+  HoprConnectOptions,
+  HoprConnectTestingOptions,
+  Libp2pComponents
 } from './types.js'
 
 import { Relay } from './relay/index.js'
@@ -67,18 +71,21 @@ type HoprConnectConfig = {
 /**
  * @class HoprConnect
  */
-class HoprConnect implements Transport, Initializable, Startable {
+class HoprConnect implements Transport, Startable {
   public discovery: Discovery
 
-  private options: HoprConnectOptions
-  private testingOptions: HoprConnectTestingOptions
+  private readonly options: HoprConnectOptions
+  private readonly testingOptions: HoprConnectTestingOptions
 
-  components: Components | undefined
-  connectComponents: ConnectComponents | undefined
+  private readonly components: Libp2pComponents
+  private readonly connectComponents: ConnectComponents
 
-  constructor(opts: HoprConnectConfig) {
+  private _started: boolean
+
+  constructor(init: Libp2pComponents, opts: HoprConnectConfigOptions) {
     this.options = opts.config ?? {}
     this.testingOptions = opts.testing ?? {}
+    this.components = init
 
     this.discovery = new Discovery()
 
@@ -91,6 +98,18 @@ class HoprConnect implements Transport, Initializable, Startable {
     if (!!this.testingOptions.__preferLocalAddresses) {
       verbose(`DEBUG mode: treat local addresses as public addresses.`)
     }
+
+    const upgrader =  new WebRTCUpgrader(this.options)
+
+    this.connectComponents = new ConnectComponents({
+      addressFilter: new Filter(components, this.options),
+      entryNodes: new EntryNodes(components, this.options),
+      relay: new Relay(components, upgrader, this.options, this.testingOptions),
+      upnpManager: new UpnpManager(components),
+      webRTCUpgrader: upgrader
+    })
+
+    this._started = false
   }
 
   get [symbol](): true {
@@ -101,39 +120,8 @@ class HoprConnect implements Transport, Initializable, Startable {
     return 'HoprConnect'
   }
 
-  public init(components: Components) {
-    this.components = components
-
-    this.connectComponents = new ConnectComponents({
-      addressFilter: new Filter(this.options),
-      entryNodes: new EntryNodes(this.options),
-      relay: new Relay(this.options, this.testingOptions),
-      upnpManager: new UpnpManager(),
-      webRTCUpgrader: new WebRTCUpgrader(this.options)
-    })
-
-    // Pass libp2p internals
-    this.connectComponents.init(components)
-  }
-
-  public getComponents(): Components {
-    if (this.components == null) {
-      throw errCode(new Error('components not set'), 'ERR_SERVICE_MISSING')
-    }
-
-    return this.components
-  }
-
-  public getConnectComponents(): ConnectComponents {
-    if (this.connectComponents == null) {
-      throw errCode(new Error('connectComponents not set'), 'ERR_SERVICE_MISSING')
-    }
-
-    return this.connectComponents
-  }
-
   public isStarted(): boolean {
-    return true
+    return this._started
   }
 
   // Simulated NAT:
@@ -144,8 +132,8 @@ class HoprConnect implements Transport, Initializable, Startable {
   // connection that gets reused.
   private setupSimulatedNAT(): void {
     // Simulated NAT using connection gater
-    const denyInboundConnection = this.getComponents().getConnectionGater().denyInboundConnection
-    this.getComponents().getConnectionGater().denyInboundConnection = async (maConn: MultiaddrConnection) => {
+    const denyInboundConnection = this.components.connectionGater.denyInboundConnection
+    this.components.connectionGater.denyInboundConnection = async (maConn: MultiaddrConnection) => {
       if (await denyInboundConnection(maConn)) {
         // Blocked by e.g. Network Registry
         return true
@@ -164,24 +152,31 @@ class HoprConnect implements Transport, Initializable, Startable {
   }
 
   public async beforeStart() {
-    await this.getConnectComponents().beforeStart()
+    await this.components.beforeStart()
   }
 
   public async start(): Promise<void> {
+    if (this._started) {
+      return
+    }
+
+    this._started = true
+
     if (!!this.testingOptions.__noDirectConnections) {
       verbose(`DEBUG mode: always using relayed or WebRTC connections.`)
 
       this.setupSimulatedNAT()
     }
-    await this.getConnectComponents().start()
+    await this.components.start()
   }
 
   public async afterStart() {
-    await this.getConnectComponents().afterStart()
+    await this.components.afterStart()
   }
 
   public async stop(): Promise<void> {
-    await this.getConnectComponents().stop()
+    this._started = false
+    await this.components.stop()
   }
 
   /**
@@ -198,7 +193,7 @@ class HoprConnect implements Transport, Initializable, Startable {
     // Other addresses are not supported.
     const destination = peerIdFromBytes((maTuples[2][1] as Uint8Array).slice(1))
 
-    if (destination.equals(this.getComponents().getPeerId())) {
+    if (destination.equals(this.components.peerId)) {
       throw new Error(`Cannot dial ourself`)
     }
 
@@ -243,7 +238,7 @@ class HoprConnect implements Transport, Initializable, Startable {
    */
   // @ts-ignore libp2p type clash
   public createListener(opts: CreateListenerOptions): Listener {
-    return new Listener(this.options, this.testingOptions, this.getComponents(), this.getConnectComponents())
+    return new Listener(this.options, this.testingOptions, this.components, this.connectComponents)
   }
 
   /**
@@ -256,7 +251,7 @@ class HoprConnect implements Transport, Initializable, Startable {
    */
   public filter(multiaddrs: Multiaddr[]): Multiaddr[] {
     return (Array.isArray(multiaddrs) ? multiaddrs : [multiaddrs]).filter(
-      this.getConnectComponents().getAddressFilter().filter.bind(this.getConnectComponents().getAddressFilter())
+      this.connectComponents.addressFilter.filter.bind(this.connectComponents.addressFilter)
     )
   }
 
@@ -271,14 +266,14 @@ class HoprConnect implements Transport, Initializable, Startable {
 
     let conn: Connection | undefined
 
-    let maConn = await this.getConnectComponents()
-      .getRelay()
+    let maConn = await this.connectComponents
+      .relay
       .connect(
         relay,
         destination,
         () => {
           if (conn) {
-            ;(this.components as Components).getUpgrader().dispatchEvent(
+            this.components.upgrader.dispatchEvent(
               new CustomEvent(`connectionEnd`, {
                 detail: conn
               })
@@ -303,7 +298,7 @@ class HoprConnect implements Transport, Initializable, Startable {
     }
 
     // Not supposed to throw any exception
-    cleanExistingConnections(this.components as Components, conn.remotePeer, conn.id, error)
+    cleanExistingConnections(this.components, conn.remotePeer, conn.id, error)
 
     // Merges all tags from `maConn` into `conn` and then make both objects
     // use the *same* array
@@ -334,7 +329,7 @@ class HoprConnect implements Transport, Initializable, Startable {
       ma,
       () => {
         if (conn) {
-          ;(this.components as Components).getUpgrader().dispatchEvent(
+          this.components.upgrader.dispatchEvent(
             new CustomEvent(`connectionEnd`, {
               detail: conn
             })
@@ -351,7 +346,7 @@ class HoprConnect implements Transport, Initializable, Startable {
     conn = await timeout(DEFAULT_CONNECTION_UPGRADE_TIMEOUT, () => options.upgrader.upgradeOutbound(maConn))
 
     // Not supposed to throw any exception
-    cleanExistingConnections(this.components as Components, conn.remotePeer, conn.id, error)
+    cleanExistingConnections(this.components, conn.remotePeer, conn.id, error)
 
     verbose(`Direct connection to ${maConn.remoteAddr.toString()} has been established successfully!`)
     if (conn.tags) {
@@ -367,4 +362,11 @@ class HoprConnect implements Transport, Initializable, Startable {
 export type { PublicNodesEmitter, HoprConnectConfig }
 export { compareAddressesLocalMode, compareAddressesPublicMode } from './utils/index.js'
 
-export { HoprConnect, PeerConnectionType }
+export { PeerConnectionType }
+export type { HoprConnect }
+
+export function hoprConnect(init: HoprConnectConfig): (components?: Libp2pComponents) => HoprConnect {
+  return (components: Libp2pComponents = {}) => {
+    return new HoprConnect(components, init)
+  }
+}

@@ -1,15 +1,14 @@
-import type { HoprConnectOptions, PeerStoreType, StreamType } from '../types.js'
-import type { Connection } from '@libp2p/interface-connection'
-import type { PeerId } from '@libp2p/interface-peer-id'
-import type { Initializable, Components } from '@libp2p/interfaces/components'
-import type { Startable } from '@libp2p/interfaces/startable'
+import errCode from 'err-code'
+import { EventEmitter } from 'events'
+import Debug from 'debug'
 import { Multiaddr } from '@multiformats/multiaddr'
 import { peerIdFromString } from '@libp2p/peer-id'
 import { handshake } from 'it-handshake'
 
-import errCode from 'err-code'
-import { EventEmitter } from 'events'
-import Debug from 'debug'
+import type { HoprConnectOptions, PeerStoreType, StreamType } from '../types.js'
+import type { Connection } from '@libp2p/interface-connection'
+import type { PeerId } from '@libp2p/interface-peer-id'
+import type { Startable } from '@libp2p/interfaces/startable'
 
 import {
   CODE_IP4,
@@ -37,6 +36,8 @@ import {
   DialStatus
 } from '@hoprnet/hopr-utils'
 import { attemptClose, relayFromRelayAddress } from '../utils/index.js'
+
+import type { Libp2pComponents } from '../types.js'
 
 const DEBUG_PREFIX = 'hopr-connect:entry'
 const log = Debug(DEBUG_PREFIX)
@@ -248,7 +249,7 @@ export const RELAY_CHANGED_EVENT = 'relay:changed'
  *                               │  │offline  │
  *                               └─ └─────────┘
  */
-export class EntryNodes extends EventEmitter implements Initializable, Startable {
+export class EntryNodes extends EventEmitter implements Startable {
   // Nodes with good availability
   protected availableEntryNodes: EntryNodeData[]
   // New nodes with unclear availability
@@ -276,8 +277,6 @@ export class EntryNodes extends EventEmitter implements Initializable, Startable
   private _isStarted: boolean
   private enabled: boolean
 
-  private components: Components | undefined
-
   private _onNewRelay: ((peer: PeerStoreType) => void) | undefined
   private _onRemoveRelay: ((peer: PeerId) => void) | undefined
 
@@ -285,8 +284,12 @@ export class EntryNodes extends EventEmitter implements Initializable, Startable
 
   private addToUpdateQueue: ReturnType<typeof oneAtATime>
 
+  private readonly components: Libp2pComponents
+  private readonly opts: HoprConnectOptions
+
   constructor(
-    private options: HoprConnectOptions,
+    init: Libp2pComponents,
+    opts: HoprConnectOptions,
     overwrites?: {
       maxRelaysPerNode?: number
       minRelaysPerNode?: number
@@ -295,6 +298,9 @@ export class EntryNodes extends EventEmitter implements Initializable, Startable
     }
   ) {
     super()
+
+    this.components = init
+    this.opts = opts
 
     this.enabled = false
 
@@ -350,7 +356,7 @@ export class EntryNodes extends EventEmitter implements Initializable, Startable
    */
   public async afterStart() {
     if (this.enabled) {
-      if (this.options.publicNodes != undefined) {
+      if (this.opts.publicNodes != undefined) {
         this._onNewRelay = function (this: EntryNodes, peer: PeerStoreType) {
           this.addToUpdateQueue(async () => {
             log(`peer online`, peer.id.toString())
@@ -364,8 +370,8 @@ export class EntryNodes extends EventEmitter implements Initializable, Startable
           })
         }.bind(this)
 
-        this.options.publicNodes.on('addPublicNode', this._onNewRelay)
-        this.options.publicNodes.on('removePublicNode', this._onRemoveRelay)
+        this.opts.publicNodes.on('addPublicNode', this._onNewRelay)
+        this.opts.publicNodes.on('removePublicNode', this._onRemoveRelay)
       }
 
       this.startDHTRenewInterval()
@@ -385,10 +391,10 @@ export class EntryNodes extends EventEmitter implements Initializable, Startable
     }
 
     if (this.enabled) {
-      if (this.options.publicNodes != undefined && this._onNewRelay != undefined && this._onRemoveRelay != undefined) {
-        this.options.publicNodes.removeListener('addPublicNode', this._onNewRelay)
+      if (this.opts.publicNodes != undefined && this._onNewRelay != undefined && this._onRemoveRelay != undefined) {
+        this.opts.publicNodes.removeListener('addPublicNode', this._onNewRelay)
 
-        this.options.publicNodes.removeListener('removePublicNode', this._onRemoveRelay)
+        this.opts.publicNodes.removeListener('removePublicNode', this._onRemoveRelay)
       }
 
       this.stopReconnectAttempts?.()
@@ -396,18 +402,6 @@ export class EntryNodes extends EventEmitter implements Initializable, Startable
     }
 
     this._isStarted = false
-  }
-
-  public init(components: Components) {
-    this.components = components
-  }
-
-  public getComponents(): Components {
-    if (this.components == null) {
-      throw errCode(new Error('components not set'), 'ERR_SERVICE_MISSING')
-    }
-
-    return this.components
   }
 
   /**
@@ -444,7 +438,7 @@ export class EntryNodes extends EventEmitter implements Initializable, Startable
     const usedRelays = new Set(this.getUsedRelayPeerIds().map((p: PeerId) => p.toString()))
 
     if (this.disconnectListener != undefined) {
-      this.getComponents().getConnectionManager().removeEventListener('peer:disconnect', this.disconnectListener)
+      this.components.connectionManager.removeEventListener('peer:disconnect', this.disconnectListener)
     }
     this.disconnectListener = (event: CustomEvent<Connection>) => {
       const remotePeer = event.detail.remotePeer
@@ -455,7 +449,7 @@ export class EntryNodes extends EventEmitter implements Initializable, Startable
       }
     }
 
-    this.getComponents().getConnectionManager().addEventListener('peer:disconnect', this.disconnectListener)
+    this.components.connectionManager.addEventListener('peer:disconnect', this.disconnectListener)
   }
 
   private async reconnectToEntryNode(peer: PeerId) {
@@ -493,9 +487,9 @@ export class EntryNodes extends EventEmitter implements Initializable, Startable
           log(`Reconnect attempt ${attempt} to entry node ${peer.toString()} was successful`)
         },
         {
-          minDelay: this.options.entryNodeReconnectBaseTimeout ?? DEFAULT_ENTRY_NODE_RECONNECT_BASE_TIMEOUT,
-          maxDelay: 10 * (this.options.entryNodeReconnectBaseTimeout ?? DEFAULT_ENTRY_NODE_RECONNECT_BASE_TIMEOUT),
-          delayMultiple: this.options.entryNodeReconnectBackoff ?? DEFAULT_ENTRY_NODE_RECONNECT_BACKOFF
+          minDelay: this.opts.entryNodeReconnectBaseTimeout ?? DEFAULT_ENTRY_NODE_RECONNECT_BASE_TIMEOUT,
+          maxDelay: 10 * (this.opts.entryNodeReconnectBaseTimeout ?? DEFAULT_ENTRY_NODE_RECONNECT_BASE_TIMEOUT),
+          delayMultiple: this.opts.entryNodeReconnectBackoff ?? DEFAULT_ENTRY_NODE_RECONNECT_BACKOFF
         }
       )
     } catch (err: any) {
@@ -582,8 +576,8 @@ export class EntryNodes extends EventEmitter implements Initializable, Startable
       async () => {
         if (
           !allowed &&
-          this.options.isAllowedToAccessNetwork != undefined &&
-          !(await this.options.isAllowedToAccessNetwork(this.getComponents().getPeerId()))
+          this.opts.isAllowedToAccessNetwork != undefined &&
+          !(await this.opts.isAllowedToAccessNetwork(this.components.peerId))
         ) {
           log(
             `Node has not been registered and thus not allowed to access network. Skip trying to connect to entry nodes`
@@ -646,7 +640,7 @@ export class EntryNodes extends EventEmitter implements Initializable, Startable
    * @param peer PeerInfo of node that is added as a relay opportunity
    */
   protected async onNewRelay(peer: PeerStoreType): Promise<void> {
-    if (peer.id.equals(this.getComponents().getPeerId())) {
+    if (peer.id.equals(this.components.peerId)) {
       // Cannot use self as entry node
       return
     }
@@ -767,8 +761,8 @@ export class EntryNodes extends EventEmitter implements Initializable, Startable
     for (const nodeList of [this.uncheckedEntryNodes, this.availableEntryNodes, this.offlineEntryNodes]) {
       for (const node of nodeList) {
         // In case the addrs are not known to libp2p
-        await this.getComponents()
-          .getPeerStore()
+        await this.components
+          .peerStore
           .addressBook.add(
             node.id,
             node.multiaddrs.map((ma) => ma.decapsulateCode(CODE_P2P))
@@ -1028,9 +1022,9 @@ export class EntryNodes extends EventEmitter implements Initializable, Startable
    */
   private async connectToRelay(id: PeerId, relay: Multiaddr): Promise<{ entry: EntryNodeData; conn?: Connection }> {
     const result = await dial(
-      this.getComponents(),
+      this.components,
       id,
-      CAN_RELAY_PROTOCOLS(this.options.environment, this.options.supportedEnvironments),
+      CAN_RELAY_PROTOCOLS(this.opts.environment, this.opts.supportedEnvironments),
       false,
       true
     )

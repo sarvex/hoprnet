@@ -4,7 +4,7 @@ import type { RelayConnectionInterface } from '../relay/connection.js'
 
 import { handshake } from 'it-handshake'
 import { duplexPair } from 'it-pair/duplex'
-import { Multiaddr } from '@multiformats/multiaddr'
+import { multiaddr } from '@multiformats/multiaddr'
 import { pushable } from 'it-pushable'
 
 import { WebRTCConnection, MigrationStatus } from './connection.js'
@@ -224,7 +224,7 @@ describe('test webrtc connection', function () {
       {
         counterparty: Bob,
         ...BobAlice,
-        remoteAddr: new Multiaddr(`/p2p/${Bob.toString()}`),
+        remoteAddr: multiaddr(`/p2p/${Bob.toString()}`),
         sendUpgraded: () => {},
         getCurrentChannel: () => webRTCInstance
       } as RelayConnectionInterface,

@@ -1,20 +1,21 @@
-import type { Connection } from '@libp2p/interface-connection'
+import { EventEmitter } from 'events'
+import { multiaddr } from '@multiformats/multiaddr'
+import { duplexPair } from 'it-pair/duplex'
+import { isPeerId } from '@libp2p/interface-peer-id'
+import { CustomEvent, EventEmitter as TypedEventEmitter } from '@libp2p/interfaces/events'
+import { peerIdFromString } from '@libp2p/peer-id'
+import { MultiaddrConnection } from '@libp2p/interfaces/transport'
+
+import type { IncomingStreamData, StreamHandler } from '@libp2p/interface-registrar'
+import type { Connection, Stream } from '@libp2p/interface-connection'
 import type { Dialer, ConnectionManagerEvents } from '@libp2p/interface-connection-manager'
 import type { Components, Initializable } from '@libp2p/interfaces/components'
 import type { AbortOptions } from '@libp2p/interfaces'
-import { type PeerId, isPeerId } from '@libp2p/interface-peer-id'
-import { CustomEvent, EventEmitter as TypedEventEmitter } from '@libp2p/interfaces/events'
-import { peerIdFromString } from '@libp2p/peer-id'
-import type { PeerStore } from '@libp2p/interfaces/peer-store'
-import { duplexPair } from 'it-pair/duplex'
+import type { PeerId } from '@libp2p/interface-peer-id'
+import type { PeerStore } from '@libp2p/interface-peer-store'
+import type { Multiaddr } from '@multiformats/multiaddr'
 
-import { EventEmitter } from 'events'
-import { Multiaddr } from '@multiformats/multiaddr'
-
-import type { Stream } from '../types.js'
 import { CODE_P2P } from '../constants.js'
-import { StreamHandler } from '@libp2p/interfaces/registrar'
-import { MultiaddrConnection } from '@libp2p/interfaces/transport'
 
 /**
  * Minimal TransportManager, used for unit testing
@@ -50,7 +51,7 @@ class MyTransportManager implements Initializable {
   }
 
   public getAddrs(): Multiaddr[] {
-    return [...this.addrs].map((str) => new Multiaddr(str))
+    return [...this.addrs].map((str) => multiaddr(str))
   }
 }
 
@@ -65,7 +66,7 @@ class MyRegistrar {
   }
 
   public async handle(protocols: string | string[], handler: StreamHandler): Promise<void> {
-    for (const protocol of Array.isArray(protocols) ? protocols : [protocols]) {
+    for (const protocol of [protocols].flat()) {
       this.handlers.set(protocol, handler)
     }
   }
@@ -210,7 +211,7 @@ function createFakePeerStore(): PeerStore {
             ...new Set(
               (addrs.get(id.toString()) ?? []).concat(multiaddrs).map((ma) => ma.decapsulateCode(CODE_P2P).toString())
             )
-          ].map((str) => new Multiaddr(str))
+          ].map((str) => multiaddr(str))
         )
       }
     }
@@ -264,6 +265,7 @@ function createConnection(self: PeerId, remoteComponents: Components, throwError
       conn._closed = true
     },
     stat: {
+      status: 'OPEN',
       direction: 'outbound',
       timeline: {
         open: Date.now()
@@ -277,30 +279,33 @@ function createConnection(self: PeerId, remoteComponents: Components, throwError
       for (const protocol of protocols) {
         const streamHandler = remoteComponents.getRegistrar().getHandler(protocol)
         if (streamHandler != undefined) {
-          const duplex = duplexPair<Uint8Array>()
-
-          streamHandler({
-            stream: {
-              sink: duplex[1].sink,
-              source: duplex[1].source
-            } as any,
-            protocol,
+          const duplex: [Stream, Stream] = duplexPair<Uint8Array>()
+          const stream = duplex[1]
+          const data: IncomingStreamData = {
+            stream,
             connection: {
+              id: Date.now().toString(),
               remotePeer: self,
+              tags: [],
+              streams: [],
+              remoteAddr: multiaddr(),
               stat: {
+                status: 'OPEN',
                 direction: 'inbound',
                 timeline: {
                   open: Date.now()
                 }
+              },
+              newStream: async (_protocol: string | string[], _options?: AbortOptions) => stream,
+              addStream: (_stream: Stream) => { },
+              removeStream: (_id: string) => { },
+              close: async () => { }
               }
-            } as any
-          })
+            }
+          streamHandler(data)
           return {
             protocol,
-            stream: {
-              sink: duplex[0].sink,
-              source: duplex[0].source
-            }
+            stream: duplex[0]
           }
         }
       }
@@ -359,7 +364,7 @@ export function createFakeNetwork() {
  * @param opts customizable dial behavior
  * @returns
  */
-export async function createFakeComponents(
+export async function createFakeLibp2p(
   peerId: PeerId,
   network: ReturnType<typeof createFakeNetwork>,
   opts: {
@@ -393,8 +398,8 @@ export async function createFakeComponents(
   connectionManager.init(components)
   transportManager.init(components)
 
-  for (const protcolHandler of opts.protocols ?? []) {
-    await components.getRegistrar().handle(...protcolHandler)
+  for (const protocolHandler of opts.protocols ?? []) {
+    await components.getRegistrar().handle(...protocolHandler)
   }
 
   if (opts.listeningAddrs) {

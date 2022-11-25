@@ -1,22 +1,23 @@
-import type { PeerId } from '@libp2p/interface-peer-id'
-import type { Connection } from '@libp2p/interface-connection'
-import type { IncomingStreamData } from '@libp2p/interfaces/registrar'
-import type { Initializable, Components } from '@libp2p/interfaces/components'
-import type { Startable } from '@libp2p/interfaces/startable'
-import type { DialOptions } from '@libp2p/interface-transport'
-import { CustomEvent } from '@libp2p/interfaces/events'
-import type { Stream, HoprConnectOptions, HoprConnectTestingOptions } from '../types.js'
-import type { ConnectComponents, ConnectInitializable } from '../components.js'
-
-import { peerIdFromString } from '@libp2p/peer-id'
-
 import errCode from 'err-code'
 import debug from 'debug'
 import chalk from 'chalk'
+import { CustomEvent } from '@libp2p/interfaces/events'
+import { peerIdFromString } from '@libp2p/peer-id'
+import { handshake } from 'it-handshake'
 
-import { WebRTCConnection, type WebRTCConnectionInterface } from '../webrtc/index.js'
+import type { PeerId } from '@libp2p/interface-peer-id'
+import type { Connection } from '@libp2p/interface-connection'
+import type { IncomingStreamData } from '@libp2p/interfaces/registrar'
+import type { Startable } from '@libp2p/interfaces/startable'
+import type { DialOptions } from '@libp2p/interface-transport'
+import type { Stream, HoprConnectOptions, HoprConnectTestingOptions } from '../types.js'
+import type { ConnectComponents, ConnectInitializable } from '../components.js'
+
+import { WebRTCConnection } from '../webrtc/index.js'
+import type { WebRTCUpgrader, WebRTCConnectionInterface } from '../webrtc/index.js'
 import { RELAY_PROTOCOLS, DELIVERY_PROTOCOLS, OK, CAN_RELAY_PROTOCOLS } from '../constants.js'
-import { RelayConnection, type RelayConnectionInterface } from './connection.js'
+import { RelayConnection } from './connection.js'
+import type { RelayConnectionInterface } from './connection.js'
 import {
   abortRelayHandshake,
   handleRelayHandshake,
@@ -36,8 +37,9 @@ import {
   retimer
 } from '@hoprnet/hopr-utils'
 
-import { handshake } from 'it-handshake'
 import { attemptClose, cleanExistingConnections } from '../utils/index.js'
+
+import type { Libp2pComponents } from '../types.js'
 
 const DEBUG_PREFIX = 'hopr-connect:relay'
 const DEFAULT_MAX_RELAYED_CONNECTIONS = 10
@@ -87,7 +89,7 @@ function printUsedRelays(peers: PeerId[], prefix = '') {
 /**
  * API interface for relayed connections
  */
-class Relay implements Initializable, ConnectInitializable, Startable {
+class Relay implements ConnectInitializable, Startable {
   private relayState: RelayState
   private usedRelays: PeerId[]
 
@@ -96,10 +98,18 @@ class Relay implements Initializable, ConnectInitializable, Startable {
   private stopKeepAlive: (() => void) | undefined
   private connectedToRelays: Set<string>
 
-  private components: Components | undefined
-  private connectComponents: ConnectComponents | undefined
+  protected readonly components: Components
+  private readonly options: HoprConnectOptions
+  private readonly testingOptions: HoprConnectTestingOptions
 
-  constructor(private options: HoprConnectOptions, private testingOptions: HoprConnectTestingOptions) {
+  public upgrader: WebRTCUpgrader
+
+  constructor(init: Libp2pComponents, upgrader: WebRTCUpgrader, options: HoprConnectOptions, testingOptions: HoprConnectTestingOptions) {
+    this.components = init
+    this.upgrader = upgrader
+    this.options = options
+    this.testingOptions = testingOptions
+
     this._isStarted = false
 
     log(`relay testing options`, testingOptions)
@@ -118,30 +128,6 @@ class Relay implements Initializable, ConnectInitializable, Startable {
     this.onDelivery = this.onDelivery.bind(this)
     this.onRelay = this.onRelay.bind(this)
     this.onCanRelay = this.onCanRelay.bind(this)
-  }
-
-  public init(components: Components) {
-    this.components = components
-  }
-
-  public getComponents(): Components {
-    if (this.components == null) {
-      throw errCode(new Error('components not set'), 'ERR_SERVICE_MISSING')
-    }
-
-    return this.components
-  }
-
-  public initConnect(connectComponents: ConnectComponents) {
-    this.connectComponents = connectComponents
-  }
-
-  public getConnectComponents(): ConnectComponents {
-    if (this.connectComponents == null) {
-      throw errCode(new Error('connectComponents not set'), 'ERR_SERVICE_MISSING')
-    }
-
-    return this.connectComponents
   }
 
   public isStarted(): boolean {
@@ -229,8 +215,8 @@ class Relay implements Initializable, ConnectInitializable, Startable {
 
     let outRelays = `Currently tracked connections to relays:\n`
     for (const relayPeerId of this.connectedToRelays) {
-      const countConns = this.getComponents()
-        .getConnectionManager()
+      const countConns = this.components
+        .connectionManager
         .getConnections(peerIdFromString(relayPeerId)).length
 
       outRelays += `- ${relayPeerId}: ${countConns} connection${countConns == 1 ? '' : 's'}\n`
@@ -255,7 +241,7 @@ class Relay implements Initializable, ConnectInitializable, Startable {
     options?: DialOptions
   ): Promise<RelayConnectionInterface | WebRTCConnectionInterface | undefined> {
     const response = await dial(
-      this.getComponents(),
+      this.components,
       relay,
       RELAY_PROTOCOLS(this.options.environment, this.options.supportedEnvironments),
       false
@@ -311,7 +297,7 @@ class Relay implements Initializable, ConnectInitializable, Startable {
       destination,
       'outbound',
       this.testingOptions.__noWebRTCUpgrade ? undefined : onClose,
-      this.getConnectComponents(),
+      this.upgrader,
       this.testingOptions,
       this.onReconnect as Relay['onReconnect']
     )
@@ -342,7 +328,7 @@ class Relay implements Initializable, ConnectInitializable, Startable {
       initiator,
       'inbound',
       this.testingOptions.__noWebRTCUpgrade ? undefined : onClose,
-      this.getConnectComponents(),
+      this.upgrader,
       this.testingOptions,
       this.onReconnect as Relay['onReconnect']
     )
@@ -363,7 +349,7 @@ class Relay implements Initializable, ConnectInitializable, Startable {
     try {
       const key = createRelayerKey(node)
 
-      await this.getComponents().getContentRouting().provide(key)
+      await this.components.contentRouting.provide(key)
 
       log(`announced in the DHT as relayer for node ${node.toString()}`, key)
     } catch (err) {
@@ -415,7 +401,7 @@ class Relay implements Initializable, ConnectInitializable, Startable {
         await negotiateRelayHandshake(
           conn.stream,
           conn.connection.remotePeer,
-          this.getComponents(),
+          this.components,
           this.relayState,
           this.options
         )
@@ -467,7 +453,7 @@ class Relay implements Initializable, ConnectInitializable, Startable {
     )
     try {
       // Will call internal libp2p event handler, so no further action required
-      upgradedConn = await this.getComponents().getUpgrader().upgradeInbound(newConn)
+      upgradedConn = await this.components.upgrader.upgradeInbound(newConn)
       metric_countSuccessfulIncomingRelayReqs.increment()
     } catch (err) {
       error(`Could not upgrade relayed connection. Error was: ${err}`)
@@ -516,11 +502,11 @@ class Relay implements Initializable, ConnectInitializable, Startable {
 
     try {
       if (!this.testingOptions.__noWebRTCUpgrade) {
-        newConn = await this.getComponents()
-          .getUpgrader()
+        newConn = await this.components
+          .upgrader
           .upgradeInbound(WebRTCConnection(relayConn, this.testingOptions, onClose))
       } else {
-        newConn = await this.getComponents().getUpgrader().upgradeInbound(relayConn)
+        newConn = await this.components.upgrader.upgradeInbound(relayConn)
         relayConn.setOnClose(onClose)
       }
     } catch (err) {
@@ -529,8 +515,8 @@ class Relay implements Initializable, ConnectInitializable, Startable {
     }
 
     // @TODO remove this (1/2 done)
-    this.getComponents()
-      .getConnectionManager()
+    this.components
+      .connectionManager
       // @ts-ignore not part of exposed interface (yet)
       .dialer._pendingDials?.get(counterparty.toString())
       ?.destroy()

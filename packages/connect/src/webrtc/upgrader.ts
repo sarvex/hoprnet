@@ -1,13 +1,13 @@
 import SimplePeer from 'simple-peer'
 import debug from 'debug'
+import { AbortError } from 'abortable-iterator'
 
-import { Multiaddr } from '@multiformats/multiaddr'
-import type { PeerStoreType, HoprConnectOptions } from '../types.js'
-import { CODE_IP4, CODE_TCP, CODE_UDP } from '../constants.js'
+import type { Multiaddr } from '@multiformats/multiaddr'
 import type { PeerId } from '@libp2p/interface-peer-id'
 import type { Startable } from '@libp2p/interfaces/startable'
 
-import { AbortError } from 'abortable-iterator'
+import { CODE_IP4, CODE_TCP, CODE_UDP } from '../constants.js'
+import type { PeerStoreType, HoprConnectOptions, Libp2pComponents } from '../types.js'
 
 // No types for wrtc
 // @ts-ignore
@@ -73,7 +73,10 @@ class WebRTCUpgrader implements Startable {
   private _onNewPublicNode: WebRTCUpgrader['onNewPublicNode'] | undefined
   private _onOfflineNode: WebRTCUpgrader['onOfflineNode'] | undefined
 
-  constructor(private options: HoprConnectOptions) {
+  private readonly opts: HoprConnectOptions
+
+  constructor(opts: HoprConnectOptions) {
+    this.opts = opts
     this._isStarted = false
     this.publicNodes = []
   }
@@ -93,11 +96,11 @@ class WebRTCUpgrader implements Startable {
     this._onNewPublicNode = this.onNewPublicNode.bind(this)
     this._onOfflineNode = this.onOfflineNode.bind(this)
 
-    this.options.initialNodes?.forEach(this._onNewPublicNode)
+    this.opts.initialNodes?.forEach(this._onNewPublicNode)
 
-    if (this.options.publicNodes != undefined) {
-      this.options.publicNodes.on('addPublicNode', this._onNewPublicNode)
-      this.options.publicNodes.on('removePublicNode', this._onOfflineNode)
+    if (this.opts.publicNodes != undefined) {
+      this.opts.publicNodes.on('addPublicNode', this._onNewPublicNode)
+      this.opts.publicNodes.on('removePublicNode', this._onOfflineNode)
     }
 
     this._isStarted = true
@@ -112,12 +115,12 @@ class WebRTCUpgrader implements Startable {
     }
 
     if (
-      this.options.publicNodes != undefined &&
+      this.opts.publicNodes != undefined &&
       this._onNewPublicNode != undefined &&
       this._onOfflineNode != undefined
     ) {
-      this.options.publicNodes.removeListener('addPublicNode', this._onNewPublicNode)
-      this.options.publicNodes.removeListener('removePublicNode', this._onOfflineNode)
+      this.opts.publicNodes.removeListener('addPublicNode', this._onNewPublicNode)
+      this.opts.publicNodes.removeListener('removePublicNode', this._onOfflineNode)
     }
 
     this._isStarted = false

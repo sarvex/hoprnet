@@ -1,18 +1,25 @@
+import assert from 'assert'
+import { duplexPair } from 'it-pair/duplex'
+import { unmarshalPublicKey } from '@libp2p/crypto/keys'
+import { Uint8ArrayList } from 'uint8arraylist'
+
+import type { PeerId } from '@libp2p/interface-peer-id'
+import type { IncomingStreamData } from '@libp2p/interface-registrar'
+import type { Stream } from '@libp2p/interface-connection'
+
+import { u8aEquals, defer, privKeyToPeerId } from '@hoprnet/hopr-utils'
+
+import { createFakeLibp2p, createFakeNetwork } from '../utils/libp2p.mock.spec.js'
+import { getPeerStoreEntry } from '../base/utils.spec.js'
+import { DELIVERY_PROTOCOLS } from '../constants.js'
 import {
   RelayHandshakeMessage,
   negotiateRelayHandshake,
   initiateRelayHandshake,
   handleRelayHandshake
 } from './handshake.js'
-import { u8aEquals, defer, privKeyToPeerId } from '@hoprnet/hopr-utils'
-import { duplexPair } from 'it-pair/duplex'
-import type { PeerId } from '@libp2p/interface-peer-id'
-import assert from 'assert'
-import type { Stream, StreamType } from '../types.js'
-import { unmarshalPublicKey } from '@libp2p/crypto/keys'
-import { createFakeComponents, createFakeNetwork } from '../utils/libp2p.mock.spec.js'
-import { getPeerStoreEntry } from '../base/utils.spec.js'
-import { DELIVERY_PROTOCOLS } from '../constants.js'
+
+import type { StreamType } from '../types.js'
 
 const initiator = privKeyToPeerId('0x695a1ad048d12a1a82f827a38815ab33aa4464194fa0bdb99f78d9c66ec21505')
 const relay = privKeyToPeerId('0xf0b8e814c3594d0c552d72fb3dfda7f0d9063458a7792369e7c044eda10f3b52')
@@ -41,19 +48,20 @@ describe('test relay handshake', function () {
     const relayEntry = getPeerStoreEntry('/ip4/127.0.0.1/tcp/1', destination)
     const destinationEntry = getPeerStoreEntry('/ip4/127.0.0.1/tcp/2', destination)
 
-    const relayComponents = await createFakeComponents(relay, network, {
+    const relayComponents = await createFakeLibp2p(relay, network, {
       listeningAddrs: relayEntry.multiaddrs
     })
 
-    const destinationComponents = await createFakeComponents(destination, network, {
+    const destinationComponents = await createFakeLibp2p(destination, network, {
       listeningAddrs: destinationEntry.multiaddrs,
       protocols: [
         [
           DELIVERY_PROTOCOLS(),
-          async ({ stream }) => {
+          async ({ stream }: IncomingStreamData) => {
             stream.sink(
               (async function* () {
-                yield Uint8Array.from([RelayHandshakeMessage.OK])
+                const data = new Uint8ArrayList(Uint8Array.from([RelayHandshakeMessage.OK]))
+                yield data
               })()
             )
             for await (const msg of stream.source) {
@@ -85,16 +93,16 @@ describe('test relay handshake', function () {
     const relayEntry = getPeerStoreEntry('/ip4/127.0.0.1/tcp/1', destination)
     const destinationEntry = getPeerStoreEntry('/ip4/127.0.0.1/tcp/2', destination)
 
-    const relayComponents = await createFakeComponents(relay, network, {
+    const relayComponents = await createFakeLibp2p(relay, network, {
       listeningAddrs: relayEntry.multiaddrs
     })
 
-    const destinationComponents = await createFakeComponents(destination, network, {
+    const destinationComponents = await createFakeLibp2p(destination, network, {
       listeningAddrs: destinationEntry.multiaddrs,
       protocols: [
         [
           DELIVERY_PROTOCOLS(),
-          async ({ stream }) => {
+          async ({ stream }: IncomingStreamData) => {
             stream.sink(destinationToRelay.source)
             destinationToRelay.sink(stream.source)
           }
@@ -112,8 +120,9 @@ describe('test relay handshake', function () {
 
     const handshakePromise = negotiateRelayHandshake(
       {
-        source: (async function* (): AsyncIterable<Uint8Array> {
-          yield unmarshalPublicKey(destination.publicKey as Uint8Array).marshal()
+        source: (async function* (): AsyncIterable<Uint8ArrayList> {
+          const data = new Uint8ArrayList(unmarshalPublicKey(destination.publicKey as Uint8Array).marshal())
+          yield data
         })(),
         sink: async (source: Stream['source']) => {
           for await (const msg of source) {
@@ -142,16 +151,16 @@ describe('test relay handshake', function () {
     const relayEntry = getPeerStoreEntry('/ip4/127.0.0.1/tcp/1', destination)
     const destinationEntry = getPeerStoreEntry('/ip4/127.0.0.1/tcp/2', destination)
 
-    const relayComponents = await createFakeComponents(relay, network, {
+    const relayComponents = await createFakeLibp2p(relay, network, {
       listeningAddrs: relayEntry.multiaddrs
     })
 
-    const destinationComponents = await createFakeComponents(destination, network, {
+    const destinationComponents = await createFakeLibp2p(destination, network, {
       listeningAddrs: destinationEntry.multiaddrs,
       protocols: [
         [
           DELIVERY_PROTOCOLS(),
-          async ({ stream }) => {
+          async ({ stream }: IncomingStreamData) => {
             stream.sink(destinationToRelay.source)
             destinationToRelay.sink(stream.source)
           }

@@ -1,4 +1,12 @@
+import assert from 'assert'
+import { multiaddr } from '@multiformats/multiaddr'
+
 import type { RemoteInfo } from 'dgram'
+
+import { defer, type DeferType } from '@hoprnet/hopr-utils'
+
+import { stopNode, startStunServer, bindToUdpSocket } from './utils.spec.js'
+
 import {
   handleStunRequest,
   DEFAULT_PARALLEL_STUN_CALLS,
@@ -11,10 +19,6 @@ import {
   intepreteResults,
   getExternalIp
 } from './stun.js'
-import { Multiaddr } from '@multiformats/multiaddr'
-import assert from 'assert'
-import { defer, type DeferType } from '@hoprnet/hopr-utils'
-import { stopNode, startStunServer, bindToUdpSocket } from './utils.spec.js'
 
 /**
  * Creates a STUN server that answers with tweaked STUN responses to simulate
@@ -70,7 +74,7 @@ describe('test STUN helper functions', function () {
     const socket = await bindToUdpSocket()
 
     const responses = await iterateThroughStunServers(
-      servers.map((s) => new Multiaddr(`/ip4/127.0.0.1/udp/${s.address().port}`)),
+      servers.map((s) => multiaddr(`/ip4/127.0.0.1/udp/${s.address().port}`)),
       socket,
       Infinity,
       true
@@ -98,7 +102,7 @@ describe('test STUN helper functions', function () {
     const socket = await bindToUdpSocket()
 
     const responses = await iterateThroughStunServers(
-      servers.map((s) => new Multiaddr(`/ip4/127.0.0.1/udp/${s.address().port}`)),
+      servers.map((s) => multiaddr(`/ip4/127.0.0.1/udp/${s.address().port}`)),
       socket,
       Infinity,
       true
@@ -131,7 +135,7 @@ describe('test STUN helper functions', function () {
     const LIMIT = 5
 
     await iterateThroughStunServers(
-      servers.map((s) => new Multiaddr(`/ip4/127.0.0.1/udp/${s.address().port}`)),
+      servers.map((s) => multiaddr(`/ip4/127.0.0.1/udp/${s.address().port}`)),
       socket,
       LIMIT
     )
@@ -163,7 +167,7 @@ describe('test STUN helper functions', function () {
 
     let responses: Request[] | undefined
     await assert.doesNotReject(async () => {
-      responses = await performSTUNRequests([new Multiaddr(`/dns4/totallyinvalidurl.hoprnet.org/udp/12345`)], socket)
+      responses = await performSTUNRequests([multiaddr(`/dns4/totallyinvalidurl.hoprnet.org/udp/12345`)], socket)
     }, `dns error must not cause an exception`)
 
     assert(responses != undefined && responses.length == 0, `Failed STUN request must not return any response`)
@@ -293,7 +297,7 @@ describe('test getExternalIp', function () {
     const socket = await bindToUdpSocket()
 
     const result = await getExternalIp(
-      servers.map((s) => new Multiaddr(`/ip4/127.0.0.1/udp/${s.address().port}`)),
+      servers.map((s) => multiaddr(`/ip4/127.0.0.1/udp/${s.address().port}`)),
       socket,
       true
     )
@@ -312,7 +316,7 @@ describe('test getExternalIp', function () {
     const socket = await bindToUdpSocket()
 
     const result = await getExternalIp(
-      servers.map((s) => new Multiaddr(`/ip4/127.0.0.1/udp/${s.address().port}`)),
+      servers.map((s) => multiaddr(`/ip4/127.0.0.1/udp/${s.address().port}`)),
       socket,
       true
     )
@@ -333,7 +337,7 @@ describe('test getExternalIp', function () {
     const socket = await bindToUdpSocket()
 
     const result = await getExternalIp(
-      servers.map((s) => new Multiaddr(`/ip4/127.0.0.1/udp/${s.address().port}`)),
+      servers.map((s) => multiaddr(`/ip4/127.0.0.1/udp/${s.address().port}`)),
       socket,
       true
     )

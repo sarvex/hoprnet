@@ -1,21 +1,23 @@
-import { Multiaddr } from '@multiformats/multiaddr'
+import { multiaddr } from '@multiformats/multiaddr'
 import assert from 'assert'
+
+import type { Multiaddr } from '@multiformats/multiaddr'
 
 import { maToClass, AddressClass, compareAddressesPublicMode, compareAddressesLocalMode } from './addressSorters.js'
 
-const PUBLIC_ADDRESS = new Multiaddr(
+const PUBLIC_ADDRESS = multiaddr(
   `/ip4/84.148.73.225/tcp/62492/p2p/16Uiu2HAm85aCSXNVxwQPBsfHm2hZEvNRmYxvfBhHSQgNgKyKBnWG`
 )
-const CIRCUIT_ADDRESS_1 = new Multiaddr(
+const CIRCUIT_ADDRESS_1 = multiaddr(
   `/p2p/16Uiu2HAkxr5N4BJRXeL4zY7kLSfkQTQ4dcTvGZ4pZKqZ6frRdtAq/p2p-circuit/p2p/16Uiu2HAm85aCSXNVxwQPBsfHm2hZEvNRmYxvfBhHSQgNgKyKBnWG`
 )
-const CIRCUIT_ADDRESS_2 = new Multiaddr(
+const CIRCUIT_ADDRESS_2 = multiaddr(
   `/p2p/16Uiu2HAkzVnLLd8HzqhqHY1j7P4g3n6kX6FSb23YeB7xeiyEqdaa/p2p-circuit/p2p/16Uiu2HAm85aCSXNVxwQPBsfHm2hZEvNRmYxvfBhHSQgNgKyKBnWG`
 )
-const LOCAL_B_ADDRESS = new Multiaddr(
+const LOCAL_B_ADDRESS = multiaddr(
   `/ip4/172.17.0.3/tcp/12033/p2p/16Uiu2HAm85aCSXNVxwQPBsfHm2hZEvNRmYxvfBhHSQgNgKyKBnWG`
 )
-const LOOPBACK_ADDRESS = new Multiaddr(
+const LOOPBACK_ADDRESS = multiaddr(
   `/ip4/127.0.0.1/tcp/12033/p2p/16Uiu2HAm85aCSXNVxwQPBsfHm2hZEvNRmYxvfBhHSQgNgKyKBnWG`
 )
 

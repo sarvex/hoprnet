@@ -1,11 +1,17 @@
 import NatAPI from 'nat-api'
+
 import type { Startable } from '@libp2p/interfaces/startable'
+
+import type { Libp2pComponents } from '../types.js'
 
 export class UpnpManager implements Startable {
   private client: NatAPI | undefined
   private _isStarted: boolean
 
-  constructor() {
+  private readonly components: Libp2pComponents
+
+  constructor(init: Libp2pComponents) {
+    this.components = init
     this._isStarted = false
   }
 

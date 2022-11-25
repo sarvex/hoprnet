@@ -1,6 +1,8 @@
+import errCode from 'err-code'
+import Debug from 'debug'
+
 import type { Multiaddr } from '@multiformats/multiaddr'
 import type { ValidAddress } from './utils/index.js'
-import type { Initializable, Components } from '@libp2p/interfaces/components'
 
 import {
   u8aEquals,
@@ -11,41 +13,33 @@ import {
   u8aAddrToString,
   getPrivateAddresses,
   isLocalhost,
-  u8aAddressToCIDR,
-  type Network
+  u8aAddressToCIDR
 } from '@hoprnet/hopr-utils'
-import { AddressType, parseAddress, type DirectAddress, type CircuitAddress } from './utils/index.js'
 
-import errCode from 'err-code'
-import Debug from 'debug'
-import type { HoprConnectOptions } from './types.js'
+import type { Network } from '@hoprnet/hopr-utils'
+
+import { AddressType, parseAddress } from './utils/index.js'
+import type { DirectAddress, CircuitAddress } from './utils/index.js'
+
+import type { Libp2pComponents, HoprConnectOptions } from './types.js'
 
 const log = Debug('hopr-connect:filter')
 
 const INVALID_PORTS = [0]
 
-export class Filter implements Initializable {
+export class Filter {
   private announcedAddrs?: ValidAddress[]
   private listeningFamilies?: (AddressType.IPv4 | AddressType.IPv6)[]
 
   protected myPrivateNetworks: Network[]
 
-  private components: Components | undefined
+  private readonly components: Libp2pComponents
+  private readonly opts: HoprConnectOptions
 
-  constructor(private opts: HoprConnectOptions) {
+  constructor(init: Libp2pComponents, opts: HoprConnectOptions) {
+    this.opts = opts
+    this.components = init
     this.myPrivateNetworks = getPrivateAddresses()
-  }
-
-  public init(components: Components): void {
-    this.components = components
-  }
-
-  public getComponents(): Components {
-    if (this.components == null) {
-      throw errCode(new Error('components not set'), 'ERR_SERVICE_MISSING')
-    }
-
-    return this.components
   }
 
   /**

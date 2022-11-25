@@ -21,6 +21,8 @@ import { eagerIterator } from '../utils/index.js'
 import assert from 'assert'
 import type { ConnectComponents } from '../components.js'
 
+import type { WebRTCUpgrader } from '../webrtc/index.js'
+
 const { Heap } = HeapPkg
 
 const DEBUG_PREFIX = 'hopr-connect'
@@ -161,7 +163,7 @@ export function RelayConnection(
   counterparty: PeerId,
   direction: 'inbound' | 'outbound',
   onClose: (() => void) | undefined,
-  connectComponents: ConnectComponents,
+  upgrader: WebRTCUpgrader,
   testingOptions: HoprConnectTestingOptions,
   _onReconnect: (newStream: RelayConnectionInterface, counterparty: PeerId) => Promise<void>
 ): RelayConnectionInterface {
@@ -209,15 +211,15 @@ export function RelayConnection(
   let upgradeInbound: (_signal?: AbortSignal) => SimplePeer.Instance
 
   if (!testingOptions.__noWebRTCUpgrade) {
-    upgradeInbound = connectComponents.getWebRTCUpgrader().upgradeInbound.bind(connectComponents.getWebRTCUpgrader())
+    upgradeInbound = upgrader.upgradeInbound.bind(upgrader)
 
     switch (direction) {
       case 'inbound':
-        state.channel = connectComponents.getWebRTCUpgrader().upgradeInbound()
+        state.channel = upgrader.upgradeInbound()
 
         break
       case 'outbound':
-        state.channel = connectComponents.getWebRTCUpgrader().upgradeOutbound()
+        state.channel = upgrader.upgradeOutbound()
         break
     }
   }

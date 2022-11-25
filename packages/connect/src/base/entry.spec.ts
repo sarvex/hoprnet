@@ -1,18 +1,21 @@
+import assert from 'assert'
+import { once, EventEmitter } from 'events'
+import { peerIdFromString } from '@libp2p/peer-id'
+import { multiaddr } from '@multiformats/multiaddr'
+
+import type { PeerId } from '@libp2p/interface-peer-id'
+import type { Multiaddr } from '@multiformats/multiaddr'
+import type { IncomingStreamData } from '@libp2p/interface-registrar'
+import type { Stream } from '@libp2p/interface-connection'
+
+import { privKeyToPeerId, defer, createCircuitAddress } from '@hoprnet/hopr-utils'
+
 import { EntryNodes, RELAY_CHANGED_EVENT } from './entry.js'
 import { getPeerStoreEntry } from './utils.spec.js'
 import { CAN_RELAY_PROTOCOLS, OK } from '../constants.js'
-import type { PeerStoreType, PublicNodesEmitter, Stream } from '../types.js'
-import {} from '@libp2p/peer-store'
+import { createFakeLibp2p, createFakeNetwork, connectEvent } from '../utils/libp2p.mock.spec.js'
 
-import assert from 'assert'
-import { once, EventEmitter } from 'events'
-
-import type { PeerId } from '@libp2p/interface-peer-id'
-import { Multiaddr } from '@multiformats/multiaddr'
-
-import { privKeyToPeerId, defer, createCircuitAddress } from '@hoprnet/hopr-utils'
-import { peerIdFromString } from '@libp2p/peer-id'
-import { createFakeComponents, createFakeNetwork, connectEvent } from '../utils/libp2p.mock.spec.js'
+import type { PeerStoreType, PublicNodesEmitter } from '../types.js'
 
 async function handleDefaultStream(stream: Stream, throwError: boolean = false) {
   stream.sink(
@@ -74,7 +77,7 @@ describe('entry node functionality - basic functionality', function () {
       }
     )
 
-    entryNodes.init(await createFakeComponents(peerId, network))
+    entryNodes.init(await createFakeLibp2p(peerId, network))
     entryNodes.start()
 
     const peerStoreEntry = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/0`)
@@ -137,7 +140,7 @@ describe('entry node functionality - basic functionality', function () {
       }
     )
 
-    entryNodes.init(await createFakeComponents(peerId, network))
+    entryNodes.init(await createFakeLibp2p(peerId, network))
     entryNodes.start()
 
     const firstPeerStoreEntry = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/123`, secondPeer)
@@ -159,7 +162,7 @@ describe('entry node functionality - basic functionality', function () {
     const maxRelaysPerNode = 2
     const entryNodes = new TestingEntryNodes({})
 
-    entryNodes.init(await createFakeComponents(peerId, network))
+    entryNodes.init(await createFakeLibp2p(peerId, network))
     entryNodes.start()
 
     const firstPeerStoreEntry = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/123`, secondPeer)
@@ -196,7 +199,7 @@ describe('entry node functionality - basic functionality', function () {
       }
     )
 
-    entryNodes.init(await createFakeComponents(peerId, network))
+    entryNodes.init(await createFakeLibp2p(peerId, network))
     entryNodes.start()
 
     const firstPeerStoreEntry = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/123`, secondPeer)
@@ -228,11 +231,11 @@ describe('entry node functionality', function () {
 
     const relay = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/12345`)
 
-    await createFakeComponents(relay.id, network, {
+    await createFakeLibp2p(relay.id, network, {
       protocols: [
         [
           CAN_RELAY_PROTOCOLS(),
-          ({ stream }) => {
+          ({ stream }: IncomingStreamData) => {
             return handleDefaultStream(stream)
           }
         ]
@@ -242,7 +245,7 @@ describe('entry node functionality', function () {
 
     const entryNodes = new TestingEntryNodes({ initialNodes: [relay] })
 
-    entryNodes.init(await createFakeComponents(peerId, network))
+    entryNodes.init(await createFakeLibp2p(peerId, network))
 
     // activate NAT functionalities
     entryNodes.enable()
@@ -282,22 +285,22 @@ describe('entry node functionality', function () {
     const thirdPeerStoreEntry = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/3`, Chris)
     const fourthPeerStoreEntry = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/4`, Dave)
 
-    await createFakeComponents(firstPeerStoreEntry.id, network, {
+    await createFakeLibp2p(firstPeerStoreEntry.id, network, {
       protocols: [
         [
           CAN_RELAY_PROTOCOLS(),
-          ({ stream }) => {
+          ({ stream }: IncomingStreamData) => {
             return handleDefaultStream(stream)
           }
         ]
       ],
       listeningAddrs: firstPeerStoreEntry.multiaddrs
     })
-    await createFakeComponents(secondPeerStoreEntry.id, network, {
+    await createFakeLibp2p(secondPeerStoreEntry.id, network, {
       protocols: [
         [
           CAN_RELAY_PROTOCOLS(),
-          ({ stream }) => {
+          ({ stream }: IncomingStreamData) => {
             return handleDefaultStream(stream)
           }
         ]
@@ -325,7 +328,7 @@ describe('entry node functionality', function () {
     )
 
     entryNodes.init(
-      await createFakeComponents(peerId, network, {
+      await createFakeLibp2p(peerId, network, {
         outerDial: (self: PeerId, ma: Multiaddr) => {
           switch (ma.toString()) {
             case firstPeerStoreEntry.multiaddrs[0].toString():
@@ -372,11 +375,11 @@ describe('entry node functionality', function () {
         async (_value: undefined, index: number) => {
           const relay = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/${index}`)
 
-          await createFakeComponents(relay.id, network, {
+          await createFakeLibp2p(relay.id, network, {
             protocols: [
               [
                 CAN_RELAY_PROTOCOLS(),
-                ({ stream }) => {
+                ({ stream }: IncomingStreamData) => {
                   return handleDefaultStream(stream)
                 }
               ]
@@ -400,7 +403,7 @@ describe('entry node functionality', function () {
       }
     )
 
-    entryNodes.init(await createFakeComponents(peerId, network))
+    entryNodes.init(await createFakeLibp2p(peerId, network))
 
     // activate NAT functionalities
     entryNodes.enable()
@@ -431,11 +434,11 @@ describe('entry node functionality', function () {
     const newNode = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/1`)
     const relay = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/2`)
 
-    await createFakeComponents(newNode.id, network, {
+    await createFakeLibp2p(newNode.id, network, {
       protocols: [
         [
           CAN_RELAY_PROTOCOLS(),
-          ({ stream }) => {
+          ({ stream }: IncomingStreamData) => {
             return handleDefaultStream(stream)
           }
         ]
@@ -445,7 +448,7 @@ describe('entry node functionality', function () {
 
     const entryNodes = new TestingEntryNodes({})
 
-    entryNodes.init(await createFakeComponents(peerId, network))
+    entryNodes.init(await createFakeLibp2p(peerId, network))
 
     // activate NAT functionalities
     entryNodes.enable()
@@ -454,8 +457,8 @@ describe('entry node functionality', function () {
     entryNodes.uncheckedEntryNodes.push(newNode)
 
     let usedRelay = {
-      relayDirectAddress: new Multiaddr('/ip4/127.0.0.1/tcp/1234'),
-      ourCircuitAddress: new Multiaddr(`/p2p/${relay.id.toString()}/p2p-circuit`)
+      relayDirectAddress: multiaddr('/ip4/127.0.0.1/tcp/1234'),
+      ourCircuitAddress: multiaddr(`/p2p/${relay.id.toString()}/p2p-circuit`)
     }
 
     entryNodes.usedRelays.push(usedRelay)
@@ -486,11 +489,11 @@ describe('entry node functionality', function () {
 
     const relay = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/1`)
 
-    await createFakeComponents(relay.id, network, {
+    await createFakeLibp2p(relay.id, network, {
       protocols: [
         [
           CAN_RELAY_PROTOCOLS(),
-          ({ stream }) => {
+          ({ stream }: IncomingStreamData) => {
             return handleDefaultStream(stream)
           }
         ]
@@ -500,7 +503,7 @@ describe('entry node functionality', function () {
 
     const entryNodes = new TestingEntryNodes({})
 
-    entryNodes.init(await createFakeComponents(peerId, network))
+    entryNodes.init(await createFakeLibp2p(peerId, network))
 
     // activate NAT functionalities
     entryNodes.enable()
@@ -533,7 +536,7 @@ describe('entry node functionality', function () {
 
     const entryNodes = new TestingEntryNodes({})
 
-    entryNodes.init(await createFakeComponents(peerId, network))
+    entryNodes.init(await createFakeLibp2p(peerId, network))
 
     // activate NAT functionalities
     entryNodes.enable()
@@ -557,11 +560,11 @@ describe('entry node functionality', function () {
 
     const relay = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/1`)
 
-    await createFakeComponents(relay.id, network, {
+    await createFakeLibp2p(relay.id, network, {
       protocols: [
         [
           CAN_RELAY_PROTOCOLS(),
-          ({ stream }) => {
+          ({ stream }: IncomingStreamData) => {
             return handleDefaultStream(stream)
           }
         ]
@@ -569,7 +572,7 @@ describe('entry node functionality', function () {
       listeningAddrs: relay.multiaddrs
     })
 
-    entryNodes.init(await createFakeComponents(peerId, network))
+    entryNodes.init(await createFakeLibp2p(peerId, network))
 
     // activate NAT functionalities
     entryNodes.enable()
@@ -577,8 +580,8 @@ describe('entry node functionality', function () {
     await entryNodes.afterStart()
 
     let usedRelay = {
-      relayDirectAddress: new Multiaddr(`/ip4/127.0.0.1/tcp/1`),
-      ourCircuitAddress: new Multiaddr(`/p2p/${relay.id.toString()}/p2p-circuit`)
+      relayDirectAddress: multiaddr(`/ip4/127.0.0.1/tcp/1`),
+      ourCircuitAddress: multiaddr(`/p2p/${relay.id.toString()}/p2p-circuit`)
     }
 
     entryNodes.availableEntryNodes.push({ ...relay, latency: 23 })
@@ -606,15 +609,15 @@ describe('entry node functionality', function () {
   // it('do not contact nodes we are already connected to', async function () {
   //   const entryNodes = new TestingEntryNodes({})
 
-  //   entryNodes.init(createFakeComponents(peerId))
+  //   entryNodes.init(createFakeLibp2p(peerId))
 
-  //   const ma = new Multiaddr('/ip4/8.8.8.8/tcp/9091')
+  //   const ma = multiaddr('/ip4/8.8.8.8/tcp/9091')
 
   //   const peerStoreEntry = getPeerStoreEntry(ma.toString())
 
   //   entryNodes.usedRelays.push({
   //     relayDirectAddress: ma,
-  //     ourCircuitAddress: new Multiaddr(`/p2p/${peerStoreEntry.id.toString()}/p2p-circuit/p2p/${peerId.toString()}`)
+  //     ourCircuitAddress: multiaddr(`/p2p/${peerStoreEntry.id.toString()}/p2p-circuit/p2p/${peerId.toString()}`)
   //   })
 
   //   // activate NAT functionalities
@@ -642,11 +645,11 @@ describe('entry node functionality - event propagation', function () {
 
     const relay = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/1`)
 
-    await createFakeComponents(relay.id, network, {
+    await createFakeLibp2p(relay.id, network, {
       protocols: [
         [
           CAN_RELAY_PROTOCOLS(),
-          ({ stream }) => {
+          ({ stream }: IncomingStreamData) => {
             return handleDefaultStream(stream)
           }
         ]
@@ -664,7 +667,7 @@ describe('entry node functionality - event propagation', function () {
       }
     )
 
-    entryNodes.init(await createFakeComponents(peerId, network))
+    entryNodes.init(await createFakeLibp2p(peerId, network))
 
     // activate NAT functionalities
     entryNodes.enable()
@@ -700,11 +703,11 @@ describe('entry node functionality - dht functionality', function () {
     const relay = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/1`)
 
     let connectAttempts = 0
-    await createFakeComponents(relay.id, network, {
+    await createFakeLibp2p(relay.id, network, {
       protocols: [
         [
           CAN_RELAY_PROTOCOLS(),
-          ({ stream }) => {
+          ({ stream }: IncomingStreamData) => {
             connectAttempts++
             return handleDefaultStream(stream)
           }
@@ -728,7 +731,7 @@ describe('entry node functionality - dht functionality', function () {
       }
     )
 
-    entryNodes.init(await createFakeComponents(peerId, network))
+    entryNodes.init(await createFakeLibp2p(peerId, network))
 
     // activate NAT functionalities
     entryNodes.enable()
@@ -752,11 +755,11 @@ describe('entry node functionality - automatic reconnect', function () {
   it('reconnect on disconnect - temporarily offline', async function () {
     const network = createFakeNetwork()
     const relay = getPeerStoreEntry(`/ip4/1.2.3.4/tcp/1`)
-    await createFakeComponents(relay.id, network, {
+    await createFakeLibp2p(relay.id, network, {
       protocols: [
         [
           CAN_RELAY_PROTOCOLS(),
-          ({ stream }) => {
+          ({ stream }: IncomingStreamData) => {
             return handleDefaultStream(stream)
           }
         ]
@@ -774,7 +777,7 @@ describe('entry node functionality - automatic reconnect', function () {
     )
 
     entryNodes.init(
-      await createFakeComponents(peerId, network, {
+      await createFakeLibp2p(peerId, network, {
         outerDial: (self: PeerId, ma: Multiaddr, opts: any) => {
           switch (connectAttempt++) {
             case 0:
@@ -823,11 +826,11 @@ describe('entry node functionality - automatic reconnect', function () {
     const network = createFakeNetwork()
     const relay = getPeerStoreEntry(`/ip4/1.2.3.4/tcp/1`)
 
-    await createFakeComponents(relay.id, network, {
+    await createFakeLibp2p(relay.id, network, {
       protocols: [
         [
           CAN_RELAY_PROTOCOLS(),
-          ({ stream }) => {
+          ({ stream }: IncomingStreamData) => {
             return handleDefaultStream(stream)
           }
         ]
@@ -841,7 +844,7 @@ describe('entry node functionality - automatic reconnect', function () {
     })
 
     entryNodes.init(
-      await createFakeComponents(peerId, network, {
+      await createFakeLibp2p(peerId, network, {
         outerDial: (self: PeerId, ma: Multiaddr, opts: any) => {
           switch (connectAttempt++) {
             case 0:
@@ -893,22 +896,22 @@ describe('entry node functionality - min relays per node', function () {
     const firstPeerStoreEntry = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/1`, Alice)
     const secondPeerStoreEntry = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/2`, Bob)
 
-    await createFakeComponents(firstPeerStoreEntry.id, network, {
+    await createFakeLibp2p(firstPeerStoreEntry.id, network, {
       protocols: [
         [
           CAN_RELAY_PROTOCOLS(),
-          ({ stream }) => {
+          ({ stream }: IncomingStreamData) => {
             return handleDefaultStream(stream)
           }
         ]
       ],
       listeningAddrs: firstPeerStoreEntry.multiaddrs
     })
-    await createFakeComponents(secondPeerStoreEntry.id, network, {
+    await createFakeLibp2p(secondPeerStoreEntry.id, network, {
       protocols: [
         [
           CAN_RELAY_PROTOCOLS(),
-          ({ stream }) => {
+          ({ stream }: IncomingStreamData) => {
             return handleDefaultStream(stream)
           }
         ]
@@ -925,7 +928,7 @@ describe('entry node functionality - min relays per node', function () {
     )
 
     entryNodes.init(
-      await createFakeComponents(peerId, network, {
+      await createFakeLibp2p(peerId, network, {
         outerDial: (self: PeerId, ma: Multiaddr, opts: any) => {
           connectionAttempt = true
           return network.connect(self, ma, opts)
@@ -981,22 +984,22 @@ describe('entry node functionality - min relays per node', function () {
     const firstPeerStoreEntry = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/1`, Alice)
     const secondPeerStoreEntry = getPeerStoreEntry(`/ip4/127.0.0.1/tcp/2`, Bob)
 
-    await createFakeComponents(firstPeerStoreEntry.id, network, {
+    await createFakeLibp2p(firstPeerStoreEntry.id, network, {
       protocols: [
         [
           CAN_RELAY_PROTOCOLS(),
-          ({ stream }) => {
+          ({ stream }: IncomingStreamData) => {
             return handleDefaultStream(stream)
           }
         ]
       ],
       listeningAddrs: firstPeerStoreEntry.multiaddrs
     })
-    await createFakeComponents(secondPeerStoreEntry.id, network, {
+    await createFakeLibp2p(secondPeerStoreEntry.id, network, {
       protocols: [
         [
           CAN_RELAY_PROTOCOLS(),
-          ({ stream }) => {
+          ({ stream }: IncomingStreamData) => {
             return handleDefaultStream(stream)
           }
         ]
@@ -1020,7 +1023,7 @@ describe('entry node functionality - min relays per node', function () {
     )
 
     entryNodes.init(
-      await createFakeComponents(peerId, network, {
+      await createFakeLibp2p(peerId, network, {
         outerDial: ((self: PeerId, ma: Multiaddr) => {
           const connectionAttempt = connectionAttempts.get(ma.getPeerId() as string)
 

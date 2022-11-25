@@ -214,15 +214,17 @@ function generateHandler<T extends boolean>(
         errHandler(err)
       }
 
-      pipe(
-        // prettier-ignore
-        props.stream,
-        async function collect(source: AsyncIterable<Uint8Array>) {
+      const sinkFun = async function collect(source: AsyncIterable<Uint8ArrayList>) {
           for await (const msg of source) {
             // Convert from potential BufferList to Uint8Array
             await handlerFunction(Uint8Array.from(msg.slice()), props.connection.remotePeer)
           }
         }
+
+      pipe(
+        // prettier-ignore
+        props.stream,
+        sinkFun
       )
     } as any // Limitation of Typescript
   }
