@@ -242,17 +242,12 @@ endif
 .PHONY: stake-nrnft
 stake-nrnft: ensure-environment-is-set
 stake-nrnft: ## stake Network_registry NFTs (idempotent operation)
+ifeq ($(origin PRIVATE_KEY),undefined)
+	echo "<PRIVATE_KEY> environment variable missing" >&2 && exit 1
+endif
 ifeq ($(nftrank),)
 	echo "parameter <nftrank> missing, it can be either 'developer' or 'community'" >&2 && exit 1
 endif
-ifeq ($(origin PRIVATE_KEY),undefined)
-	@TS_NODE_PROJECT=./tsconfig.hardhat.json \
-	HOPR_ENVIRONMENT_ID="$(environment)" \
-		yarn workspace @hoprnet/hopr-ethereum run hardhat stake \
-		--network $(network) \
-		--type nrnft \
-		--nftrank $(nftrank)
-else
 	@TS_NODE_PROJECT=./tsconfig.hardhat.json \
 	HOPR_ENVIRONMENT_ID="$(environment)" \
 		yarn workspace @hoprnet/hopr-ethereum run hardhat stake \
@@ -260,7 +255,6 @@ else
 		--type nrnft \
 		--nftrank $(nftrank) \
 		--privatekey "$(PRIVATE_KEY)"
-endif
 
 enable-network-registry: ensure-environment-is-set
 enable-network-registry: ## owner enables network registry (smart contract) globally
@@ -367,7 +361,6 @@ else
    --peer-ids "$(peer_ids)" \
    --privatekey "$(PRIVATE_KEY)"
 endif
-
 
 .PHONY: self-deregister-node
 self-deregister-node: ensure-environment-is-set

@@ -78,7 +78,7 @@ WORKDIR /app/hoprnet/packages/hoprd
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV DEBUG 'hopr*'
-ENV NODE_OPTIONS="--max_old_space_size=4096 --experimental-wasm-modules"
+ENV NODE_OPTIONS=--max_old_space_size=4096
 
 # Admin web server
 EXPOSE 3000

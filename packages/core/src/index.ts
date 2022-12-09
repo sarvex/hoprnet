@@ -879,7 +879,6 @@ class Hopr extends EventEmitter {
     }
 
     const path: PublicKey[] = [].concat(intermediatePath, [PublicKey.fromPeerId(destination)])
-    metric_pathLength.observe(path.length)
 
     let packet: Packet
     try {
@@ -903,7 +902,6 @@ class Hopr extends EventEmitter {
       throw Error(`Failed to send packet.`)
     }
 
-    metric_sentMessageCount.increment()
     return packet.ackChallenge.toHex()
   }
 

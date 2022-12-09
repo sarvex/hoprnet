@@ -54,7 +54,7 @@ ___
 
 #### Defined in
 
-[src/types/ethereumChallenge.ts:30](https://github.com/hoprnet/hoprnet/blob/master/packages/utils/src/types/ethereumChallenge.ts#L30)
+[types/ethereumChallenge.ts:30](https://github.com/hoprnet/hoprnet/blob/master/packages/utils/src/types/ethereumChallenge.ts#L30)
 
 ## Methods
 

@@ -116,11 +116,11 @@
 
 ### db
 
-• `Private` **db**: `LevelUp`
+• `Private` **db**: `LevelUp`<`AbstractLevelDOWN`<`any`, `any`\>, `AbstractIterator`<`any`, `any`\>\>
 
 #### Defined in
 
-[src/db/db.ts:144](https://github.com/hoprnet/hoprnet/blob/master/packages/utils/src/db/db.ts#L144)
+[db/db.ts:144](https://github.com/hoprnet/hoprnet/blob/master/packages/utils/src/db/db.ts#L144)
 
 ___
 
@@ -229,11 +229,11 @@ ___
 
 ### close
 
-▸ **close**(): `Promise`<`any`\>
+▸ **close**(): `Promise`<`void`\>
 
 #### Returns
 
-`Promise`<`any`\>
+`Promise`<`void`\>
 
 #### Defined in
 

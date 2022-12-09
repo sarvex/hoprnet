@@ -28,7 +28,7 @@ steps:
       - --cache=true
       - --cache-ttl=96h
       - --build-arg=HOPRD_RELEASE=${_IMAGE_VERSION}
-    timeout: 1200s
+    timeout: 600s
     waitFor:
       - buildHoprd
   - name: 'gcr.io/kaniko-project/executor:v1.9.1'
@@ -64,7 +64,7 @@ steps:
     env:
       - 'PACKAGE_VERSION=$_PACKAGE_VERSION'
       - 'IMAGE_VERSION=$_IMAGE_VERSION'
-    timeout: 1200s
+    timeout: 600s
     waitFor:
       - buildHoprd
       - buildHoprdNat

@@ -4,9 +4,12 @@
 
 ## Table of contents
 
+### Namespaces
+
+- [real](modules/real.md)
+
 ### Functions
 
-- [dummy\_get\_one](modules.md#dummy_get_one)
 - [read\_file](modules.md#read_file)
 - [write\_file](modules.md#write_file)
 
