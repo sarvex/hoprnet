@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash -x
 
 # prevent execution of this script, only allow execution
 $(return >/dev/null 2>&1)

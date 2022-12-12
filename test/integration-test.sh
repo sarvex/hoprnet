@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash -x
 # HOPR interaction tests via HOPRd API v2
 
 # prevent sourcing of this script, only allow execution
@@ -321,21 +321,21 @@ api_close_channel 1 4 "${api1}" "${addr4}" "outgoing" "true"
 
 for i in `seq 1 10`; do
   log "Node 1 send 1 hop message to self via node 2"
-  api_send_message "${api1}" "${addr1}" 'hello, world' "${addr2}" & jobs+=( "$!" )
+  api_send_message "${api1}" "${addr1}" 'hello, world' "${addr2}" #& jobs+=( "$!" )
 
   log "Node 2 send 1 hop message to self via node 3"
-  api_send_message "${api2}" "${addr2}" 'hello, world' "${addr3}" & jobs+=( "$!" )
+  api_send_message "${api2}" "${addr2}" 'hello, world' "${addr3}" #& jobs+=( "$!" )
 
   log "Node 3 send 1 hop message to self via node 4"
-  api_send_message "${api3}" "${addr3}" 'hello, world' "${addr4}" & jobs+=( "$!" )
+  api_send_message "${api3}" "${addr3}" 'hello, world' "${addr4}" #& jobs+=( "$!" )
 
   log "Node 4 send 1 hop message to self via node 5"
-  api_send_message "${api4}" "${addr4}" 'hello, world' "${addr5}" & jobs+=( "$!" )
+  api_send_message "${api4}" "${addr4}" 'hello, world' "${addr5}" #& jobs+=( "$!" )
 done
 
-log "Waiting for nodes to finish sending 1 hop messages"
-for j in ${jobs[@]}; do wait -n $j; done; jobs=()
-log "Waiting DONE"
+#log "Waiting for nodes to finish sending 1 hop messages"
+#for j in ${jobs[@]}; do wait -n $j; done; jobs=()
+log "1 hop messages done"
 
 log "Node 2 should now have a ticket"
 result=$(api_get_ticket_statistics "${api2}" "\"winProportion\":1")
@@ -355,36 +355,36 @@ log "-- ${result}"
 
 for i in `seq 1 10`; do
   log "Node 1 send 1 hop message to node 3 via node 2"
-  api_send_message "${api1}" "${addr3}" 'hello, world' "${addr2}" & jobs+=( "$!" )
+  api_send_message "${api1}" "${addr3}" 'hello, world' "${addr2}" #& jobs+=( "$!" )
 
   log "Node 2 send 1 hop message to node 4 via node 3"
-  api_send_message "${api2}" "${addr4}" 'hello, world' "${addr3}" & jobs+=( "$!" )
+  api_send_message "${api2}" "${addr4}" 'hello, world' "${addr3}" #& jobs+=( "$!" )
 
   log "Node 3 send 1 hop message to node 5 via node 4"
-  api_send_message "${api3}" "${addr5}" 'hello, world' "${addr4}" & jobs+=( "$!" )
+  api_send_message "${api3}" "${addr5}" 'hello, world' "${addr4}" #& jobs+=( "$!" )
 
   log "Node 5 send 1 hop message to node 2 via node 1"
-  api_send_message "${api5}" "${addr2}" 'hello, world' "${addr1}" & jobs+=( "$!" )
+  api_send_message "${api5}" "${addr2}" 'hello, world' "${addr1}" #& jobs+=( "$!" )
 done
-log "Waiting for nodes to finish sending 1-hop messages"
-for j in ${jobs[@]}; do wait -n $j; done; jobs=()
-log "Waiting DONE"
+#log "Waiting for nodes to finish sending 1-hop messages"
+#for j in ${jobs[@]}; do wait -n $j; done; jobs=()
+log "1 hop messages done"
 
 for i in `seq 1 10`; do
   log "Node 1 send 3 hop message to node 5 via node 2, node 3 and node 4"
-  api_send_message "${api1}" "${addr5}" "hello, world" "${addr2} ${addr3} ${addr4}" & jobs+=( "$!" )
+  api_send_message "${api1}" "${addr5}" "hello, world" "${addr2} ${addr3} ${addr4}" #& jobs+=( "$!" )
 done
-log "Waiting for nodes to finish sending 3-hop messages"
-for j in ${jobs[@]}; do wait -n $j; done; jobs=()
-log "Waiting DONE"
+#log "Waiting for nodes to finish sending 3-hop messages"
+#for j in ${jobs[@]}; do wait -n $j; done; jobs=()
+log "3 hop messages done Waiting DONE"
 
 for i in `seq 1 10`; do
   log "Node 1 send message to node 5"
-  api_send_message "${api1}" "${addr5}" "hello, world" "" & jobs+=( "$!" )
+  api_send_message "${api1}" "${addr5}" "hello, world" "" #& jobs+=( "$!" )
 done
-log "Waiting for node 1 to send messages to node 5"
-for j in ${jobs[@]}; do wait -n $j; done; jobs=()
-log "Waiting DONE"
+#log "Waiting for node 1 to send messages to node 5"
+#for j in ${jobs[@]}; do wait -n $j; done; jobs=()
+log "Message sending to node 5 Waiting DONE"
 
 test_redeem_in_specific_channel() {
   local node_id="${1}"
@@ -400,6 +400,7 @@ test_redeem_in_specific_channel() {
   for i in `seq 1 3`; do
     log "Node ${node_id} send 1 hop message to self via node ${second_node_id}"
     api_send_message "${node_api}" "${peer_id}" "hello, world" "${second_peer_id}"
+    log "Message sent ${i}"
   done
 
   # seems like there's slight delay needed for tickets endpoint to return up to date tickets, probably because of blockchain sync delay
@@ -412,19 +413,45 @@ test_redeem_in_specific_channel() {
   api_get_tickets_in_channel ${second_node_api} ${peer_id} "TICKETS_NOT_FOUND"
 
   api_close_channel "${node_id}" "${second_node_id}" "${node_api}" "${second_peer_id}" "outgoing"
-  echo "all good"
+  log "all good"
 }
 
-test_redeem_in_specific_channel "1" "3" ${api1} ${api3} & jobs+=( "$!" )
+log "Test Redeeming in specific channels..."
+#test_redeem_in_specific_channel "1" "3" ${api1} ${api3} # & jobs+=( "$!" )
 
-redeem_tickets "2" "${api2}" & jobs+=( "$!" )
-redeem_tickets "3" "${api2}" & jobs+=( "$!" )
-redeem_tickets "4" "${api2}" & jobs+=( "$!" )
-redeem_tickets "5" "${api2}" & jobs+=( "$!" )
+peer_id=$(get_hopr_address ${api_token}@${api1})
+second_peer_id=$(get_hopr_address ${api_token}@${api3})
 
-log "Waiting for nodes to finish ticket redemption (long running)"
-for j in ${jobs[@]}; do wait -n $j; done; jobs=()
-log "Waiting DONE"
+api_open_channel 1 3 "${api1}" "${second_peer_id}"
+
+for i in `seq 1 3`; do
+  log "Node 1 send 1 hop message to self via node 3"
+  api_send_message "1" "${peer_id}" "hello, world" "3"
+  log "Message sent ${i}"
+done
+
+# seems like there's slight delay needed for tickets endpoint to return up to date tickets, probably because of blockchain sync delay
+sleep 2
+ticket_amount=$(api_get_tickets_in_channel ${api3} ${peer_id} | jq '. | length')
+[[ "${ticket_amount}" != "3" ]] && { msg "Ticket ammount is different than expected: ${ticket_amount} != 3"; exit 1; }
+
+api_redeem_tickets_in_channel ${api3} ${peer_id}
+
+api_get_tickets_in_channel ${api3} ${peer_id} "TICKETS_NOT_FOUND"
+
+api_close_channel "1" "3" " ${api1}" "${second_peer_id}" "outgoing"
+
+
+log "Redeeming tickets"
+
+redeem_tickets "2" "${api2}"# & jobs+=( "$!" )
+redeem_tickets "3" "${api2}"# & jobs+=( "$!" )
+redeem_tickets "4" "${api2}"# & jobs+=( "$!" )
+redeem_tickets "5" "${api2}"# & jobs+=( "$!" )
+
+log "Done Waiting for nodes to finish ticket redemption (long running)"
+#for j in ${jobs[@]}; do wait -n $j; done; jobs=()
+#log "Waiting DONE"
 
 # initiate channel closures, but don't wait because this will trigger ticket
 # redemption as well
