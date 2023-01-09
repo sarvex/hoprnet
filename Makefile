@@ -8,7 +8,8 @@ CRATES := $(foreach crate,${WORKSPACES_WITH_RUST_MODULES},$(dir $(wildcard $(cra
 
 # add local Cargo install path and users' Cargo install path and use it as custom shell PATH (only once)
 PATH := $(subst :${CURDIR}/.cargo/bin,,$(subst :${HOME}/.cargo/bin,,$(PATH))):${HOME}/.cargo/bin:${CURDIR}/.cargo/bin
-SHELL := env PATH=$(PATH) $(shell which bash)
+#SHELL := env PATH=$(PATH) $(shell which bash)
+SHELL := /usr/local/bin/bash
 
 # use custom Cargo config file for each invocation
 cargo := cargo --config ${CURDIR}/.cargo/config.toml

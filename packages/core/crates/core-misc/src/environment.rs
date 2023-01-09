@@ -1,27 +1,12 @@
 use real_base::real;
+use real_base::error::RealError;
+use real_base::error::RealError::GeneralError;
+
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsValue;
 
-pub type JsResult<T> = Result<T, JsValue>;
-
-macro_rules! ok_or {
-    ($v:expr) => {
-        $v.map_err(|e| JsValue::from(e.to_string()))
-    };
-}
-
-#[wasm_bindgen(module = "@hoprnet/hopr-real")]
-extern "C" {
-    #[wasm_bindgen(catch)]
-    pub fn coerce_version(version: String) -> JsResult<String>;
-
-    #[wasm_bindgen(catch)]
-    pub fn satisfies(version: String, range: String) -> JsResult<bool>;
-}
 
 pub trait FromJsonFile: Sized {
-    fn from_json_file(mono_repo_path: &str) -> JsResult<Self>;
+    fn from_json_file(mono_repo_path: &str) -> Result<Self, RealError>;
 }
 
 #[derive(Deserialize, Serialize, Clone, Copy)]
@@ -105,12 +90,13 @@ pub struct ProtocolConfig {
 
 impl FromJsonFile for ProtocolConfig {
     /// Reads the protocol config JSON file and returns it
-    fn from_json_file(mono_repo_path: &str) -> JsResult<Self> {
+    fn from_json_file(mono_repo_path: &str) -> Result<Self, RealError> {
         let protocol_config_path = format!("{}/packages/core/protocol-config.json", mono_repo_path);
 
         let data = real::read_file(protocol_config_path.as_str())?;
 
-        let mut protocol_config = ok_or!(serde_json::from_slice::<ProtocolConfig>(&data))?;
+        let mut protocol_config = serde_json::from_slice::<ProtocolConfig>(&data)
+            .map_err(|e| GeneralError(e.to_string()))?;
 
         for (id, env) in protocol_config.environments.iter_mut() {
             env.id = id.to_owned();
@@ -126,16 +112,18 @@ impl FromJsonFile for ProtocolConfig {
 
 impl ProtocolConfig {
     /// Returns a list of environments which the node is able to work with
-    fn supported_environments(&self, mono_repo_path: &str) -> JsResult<Vec<Environment>> {
+    fn supported_environments(&self, mono_repo_path: &str) -> Result<Vec<Environment>, String> {
         let version =
-            PackageJsonFile::from_json_file(&mono_repo_path).and_then(|c| c.coerced_version())?;
+            PackageJsonFile::from_json_file(&mono_repo_path)
+                .and_then(|c| c.coerced_version())
+                .map_err(|e| e.to_string())?;
 
         let mut allowed: Vec<Environment> = vec![];
 
         for (_, env) in self.environments.iter() {
             let range = env.version_range.to_owned();
 
-            if satisfies(version.to_owned(), range).unwrap() {
+            if satisfies(version.to_owned(), range.to_owned()).unwrap() {
                 allowed.push(env.to_owned())
             }
         }
@@ -150,17 +138,18 @@ struct PackageJsonFile {
 }
 
 impl FromJsonFile for PackageJsonFile {
-    fn from_json_file(mono_repo_path: &str) -> JsResult<Self> {
+    fn from_json_file(mono_repo_path: &str) -> Result<Self, RealError> {
         let package_json_path = format!("{}/packages/hoprd/package.json", mono_repo_path);
 
         let data = real::read_file(package_json_path.as_str())?;
 
-        ok_or!(serde_json::from_slice::<PackageJsonFile>(&data))
+        serde_json::from_slice::<PackageJsonFile>(&data)
+            .map_err(|e| GeneralError(e.to_string()))
     }
 }
 
 impl PackageJsonFile {
-    fn coerced_version(&self) -> JsResult<String> {
+    fn coerced_version(&self) -> Result<String, RealError> {
         /*
          * Coerced full version using
          * coerce_version('42.6.7.9.3-alpha') // '42.6.7'
@@ -198,27 +187,29 @@ impl ResolvedEnvironment {
         mono_repo_path: &str,
         environment_id: &str,
         maybe_custom_provider: Option<&str>,
-    ) -> JsResult<Self> {
-        let mut protocol_config = ProtocolConfig::from_json_file(mono_repo_path)?;
+    ) -> Result<Self, String> {
+        let mut protocol_config = ProtocolConfig::from_json_file(mono_repo_path)
+            .map_err(|e| e.to_string())?;
         let version =
-            PackageJsonFile::from_json_file(mono_repo_path).and_then(|c| c.coerced_version())?;
+            PackageJsonFile::from_json_file(mono_repo_path)
+                .and_then(|c| c.coerced_version())
+                .map_err(|e| e.to_string())?;
 
-        let environment =
-            ok_or!(protocol_config
+        let environment = protocol_config
                 .environments
                 .get_mut(environment_id)
                 .ok_or(format!(
                     "Could not find environment {} in protocol config",
                     environment_id
-                )))?;
+                ))?;
 
-        let network = ok_or!(protocol_config
+        let network = protocol_config
             .networks
             .get_mut(&environment.network_id)
             .ok_or(format!(
                 "Invalid network_id {} for environment {}",
                 environment.network_id, environment_id
-            )))?;
+            ))?;
 
         if let Some(custom_provider) = maybe_custom_provider {
             network.default_provider = custom_provider.into();
@@ -255,15 +246,33 @@ impl ResolvedEnvironment {
                     )
                     .into())
                 }),
-            Err(e) => Err(e),
+            Err(e) => Err(e.to_string()),
         }
     }
 }
 
+// Wrappers of WASM imported functions for use in pure Rust
+
+pub fn coerce_version(version: String) -> Result<String, RealError> {
+    wasm::coerce_version(version)
+        .map_err(RealError::from)
+}
+
+pub fn satisfies(version: String, range: String) -> Result<bool, RealError> {
+    wasm::satisfies(version, range)
+        .map_err(RealError::from)
+}
+
 pub mod wasm {
-    use super::{FromJsonFile, JsResult};
+    use super::{FromJsonFile};
     use wasm_bindgen::prelude::*;
     use wasm_bindgen::JsValue;
+
+    macro_rules! ok_or {
+    ($v:expr) => {
+        $v.map_err(|e| JsValue::from(e.to_string()))
+    };
+}
 
     macro_rules! clean_mono_repo_path {
         ($v:expr,$r:ident) => {
@@ -271,12 +280,24 @@ pub mod wasm {
         };
     }
 
+    pub type JsResult<T> = Result<T, JsValue>;
+
+    #[wasm_bindgen(module = "@hoprnet/hopr-real")]
+    extern "C" {
+        #[wasm_bindgen(catch)]
+        pub fn coerce_version(version: String) -> JsResult<String>;
+
+        #[wasm_bindgen(catch)]
+        pub fn satisfies(version: String, range: String) -> JsResult<bool>;
+    }
+
     #[wasm_bindgen]
     pub fn supported_environments(mono_repo_path: &str) -> JsResult<JsValue> {
         clean_mono_repo_path!(mono_repo_path, cleaned_mono_repo_path);
 
-        let supported_envs = super::ProtocolConfig::from_json_file(cleaned_mono_repo_path)
-            .and_then(|c| c.supported_environments(cleaned_mono_repo_path))?;
+        let supported_envs = ok_or!(super::ProtocolConfig::from_json_file(cleaned_mono_repo_path)
+            .map_err(|e| e.to_string())
+            .and_then(|c| c.supported_environments(cleaned_mono_repo_path)))?;
 
         ok_or!(serde_wasm_bindgen::to_value(&supported_envs))
     }
