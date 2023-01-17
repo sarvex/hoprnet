@@ -69,8 +69,26 @@ At any time the NATed node will try to hold the connection to `MIN_RELAYS_PER_NO
 
 Each packet is prefixed by their type
 
-- Payload traffic, exposed to the consumer of the API
-- WebRTC signalling
-- Status messages
+| Kind              | Prefix | Notes                              |
+| ----------------- | ------ | ---------------------------------- |
+| Payload traffic   | 0x00   | exposed to the consumer of the API |
+| Status messages   | 0x01   |                                    |
+| WebRTC signalling | 0x02   |                                    |
+| Connection status | 0x03   |                                    |
+
+There exist the following status messages
+
+| Message | Code | Notes |
+| ------- | ---- | ----- |
+| PING    | 0x00 |       |
+| PONG    | 0x01 |       |
+
+There exist the following connection status messages
+
+| Message  | Code | Notes |
+| -------- | ---- | ----- |
+| STOP     | 0x00 |       |
+| RESTART  | 0x01 |       |
+| UPGRADED | 0x02 |       |
 
 ## Initialisation of a relayed connection
