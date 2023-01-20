@@ -1623,7 +1623,6 @@ pub trait StreamExt: Stream {
     where
         Self: Unpin,
     {
-        let foo = Pin::new(self)
         Pin::new(self).poll_next(cx)
     }
 
