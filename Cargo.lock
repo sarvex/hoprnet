@@ -647,6 +647,7 @@ dependencies = [
  "console_error_panic_hook",
  "futures 0.3.25",
  "js-sys",
+ "pin-project-lite",
  "real-base",
  "serde",
  "serde-wasm-bindgen",
