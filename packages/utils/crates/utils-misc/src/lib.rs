@@ -1,9 +1,18 @@
+use crate::utils::wasm::JsLogger;
+
 pub mod async_iterable;
 pub mod utils;
 
 #[cfg(feature = "wasm")]
+static LOGGER: JsLogger = JsLogger {};
+
+#[cfg(feature = "wasm")]
 pub mod wasm {
+    use std::str::FromStr;
+    use log::Level;
     use wasm_bindgen::prelude::*;
+    use crate::{LOGGER, ok_or_jserr};
+    use crate::utils::wasm::JsResult;
 
     #[allow(dead_code)]
     #[wasm_bindgen]
@@ -16,6 +25,15 @@ pub mod wasm {
         // https://github.com/rustwasm/console_error_panic_hook#readme
         #[cfg(feature = "console_error_panic_hook")]
         console_error_panic_hook::set_once();
+    }
+
+    #[wasm_bindgen]
+    pub fn initialize_js_logger(level: Option<String>) -> JsResult<()> {
+        ok_or_jserr!(log::set_logger(&LOGGER))?;
+        if let Some(lvl) = level.and_then(|l| Level::from_str(l.as_str()).ok()) {
+            log::set_max_level(lvl.to_level_filter());
+        }
+        Ok(())
     }
 
     // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global allocator.

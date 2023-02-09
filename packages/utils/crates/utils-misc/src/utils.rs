@@ -21,6 +21,7 @@ pub fn get_package_version(package_file: &str) -> Result<String, RealError> {
 
 #[cfg(feature = "wasm")]
 pub mod wasm {
+    use log::{Log, Metadata, Record};
     use crate::ok_or_jserr;
     use wasm_bindgen::prelude::*;
 
@@ -42,4 +43,19 @@ pub mod wasm {
     macro_rules! console_log {
         ($($t:tt)*) => (utils_misc::utils::wasm::log(&format_args!($($t)*).to_string()))
     }
+
+    pub struct JsLogger {}
+
+    impl Log for JsLogger {
+        fn enabled(&self, metadata: &Metadata) -> bool {
+            metadata.level() <= log::max_level()
+        }
+
+        fn log(&self, record: &Record) {
+            log(&format!("[{}] {}", record.level(), record.args()));
+        }
+
+        fn flush(&self) { }
+    }
+
 }
