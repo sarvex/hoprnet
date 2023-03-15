@@ -1,0 +1,158 @@
+version: "3"
+x-exit-service: &exit
+  image: europe-west6-docker.pkg.dev/rpch-375921/rpch/exit-node@sha256:3b23343a7f7d00ed8a91338b2f28bd3c78779d8c345076f9d368a792ac24325c
+  restart: unless-stopped
+  volumes:
+    - exit-node-data:/tmp
+  networks:
+    - rpch-test-net
+  command: "node apps/exit-node/build/index.js"
+volumes:
+  postgres-data:
+  exit-node-data:
+networks:
+  rpch-test-net:
+    name: sandbox
+    driver: bridge
+services:
+  db:
+    image: postgres:14.1-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - rpch-test-net
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+  funding-service:
+    image: europe-west6-docker.pkg.dev/rpch-375921/rpch/funding-service@sha256:8df2f079ab786401f55d05c61e338795687ce24df2f45ca9285e48e6b59036ef
+    depends_on:
+      - db
+    restart: unless-stopped
+    ports:
+      - "3010:3010"
+    networks:
+      - rpch-test-net
+    environment:
+      - DEBUG=${DEBUG}
+      - PORT=3010
+      - SECRET_KEY=${SECRET_KEY}
+      - WALLET_PRIV_KEY=${FUNDING_SERVICE_PRIVATE_KEY}
+      - DB_CONNECTION_URL=postgresql://postgres:postgres@db:5432
+      - FORCE_CHAIN_ID=31337
+      - FORCE_RPC_URL=${RPC_PROVIDER}
+      - FORCE_SMART_CONTRACT_ADDRESS=${FORCE_SMART_CONTRACT_ADDRESS}
+  discovery-platform:
+    image: europe-west6-docker.pkg.dev/rpch-375921/rpch/discovery-platform@sha256:9eed7eb1c9bdb9c7deaa330a64071aa3d3d8af673111045f4d7157286908e74c
+    depends_on:
+      - db
+    restart: unless-stopped
+    ports:
+      - "3020:3020"
+    networks:
+      - rpch-test-net
+    environment:
+      - DEBUG=${DEBUG}
+      - PORT=3020
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_CONNECTION_URL=postgresql://postgres:postgres@db:5432
+      - FUNDING_SERVICE_URL=http://funding-service:3010
+      - SKIP_CHECK_COMMITMENT=${SKIP_CHECK_COMMITMENT}
+  manager:
+    image: europe-west6-docker.pkg.dev/rpch-375921/rpch/manager@sha256:ed7bd24fd4004a4889273cfbb559e4d461bcb15bfc6daac6abd519267c95d6b2
+    restart: unless-stopped
+    ports:
+      - "3030:3030"
+    networks:
+      - rpch-test-net
+    environment:
+      - DEBUG=${DEBUG}
+      - PORT=3030
+  exit-1:
+    <<: *exit
+    environment:
+      - HOPRD_API_ENDPOINT=http://pluto:13301
+      - DEBUG=${DEBUG:-"rpch*"}
+      - HOPRD_API_TOKEN=${HOPRD_API_TOKEN}
+      - RPCH_PRIVATE_KEY=${EXIT_NODE_PRIV_KEY_1}
+    entrypoint:
+      [
+        "/bin/wait-for",
+        "http://${HOPRD_API_TOKEN}@pluto:13301/api/v2/account/addresses",
+        "-t",
+        "300",
+        "--",
+        "/sbin/tini",
+        "--",
+      ]
+  exit-2:
+    <<: *exit
+    environment:
+      - HOPRD_API_ENDPOINT=http://pluto:13302
+      - DEBUG=${DEBUG:-"rpch*"}
+      - HOPRD_API_TOKEN=${HOPRD_API_TOKEN}
+      - RPCH_PRIVATE_KEY=${EXIT_NODE_PRIV_KEY_2}
+    entrypoint:
+      [
+        "/bin/wait-for",
+        "http://${HOPRD_API_TOKEN}@pluto:13302/api/v2/account/addresses",
+        "-t",
+        "300",
+        "--",
+        "/sbin/tini",
+        "--",
+      ]
+  exit-3:
+    <<: *exit
+    environment:
+      - HOPRD_API_ENDPOINT=http://pluto:13303
+      - DEBUG=${DEBUG:-"rpch*"}
+      - HOPRD_API_TOKEN=${HOPRD_API_TOKEN}
+      - RPCH_PRIVATE_KEY=${EXIT_NODE_PRIV_KEY_3}
+    entrypoint:
+      [
+        "/bin/wait-for",
+        "http://${HOPRD_API_TOKEN}@pluto:13303/api/v2/account/addresses",
+        "-t",
+        "300",
+        "--",
+        "/sbin/tini",
+        "--",
+      ]
+  exit-4:
+    <<: *exit
+    environment:
+      - HOPRD_API_ENDPOINT=http://pluto:13304
+      - DEBUG=${DEBUG:-"rpch*"}
+      - HOPRD_API_TOKEN=${HOPRD_API_TOKEN}
+      - RPCH_PRIVATE_KEY=${EXIT_NODE_PRIV_KEY_4}
+    entrypoint:
+      [
+        "/bin/wait-for",
+        "http://${HOPRD_API_TOKEN}@pluto:13304/api/v2/account/addresses",
+        "-t",
+        "300",
+        "--",
+        "/sbin/tini",
+        "--",
+      ]
+  exit-5:
+    <<: *exit
+    environment:
+      - HOPRD_API_ENDPOINT=http://pluto:13305
+      - DEBUG=${DEBUG:-"rpch*"}
+      - HOPRD_API_TOKEN=${HOPRD_API_TOKEN}
+      - RPCH_PRIVATE_KEY=${EXIT_NODE_PRIV_KEY_5}
+    entrypoint:
+      [
+        "/bin/wait-for",
+        "http://${HOPRD_API_TOKEN}@pluto:13305/api/v2/account/addresses",
+        "-t",
+        "300",
+        "--",
+        "/sbin/tini",
+        "--",
+      ]
