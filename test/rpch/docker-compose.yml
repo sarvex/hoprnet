@@ -1,19 +1,16 @@
 version: "3"
+x-host-access: &hostaccess
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
 x-exit-service: &exit
   image: europe-west6-docker.pkg.dev/rpch-375921/rpch/exit-node@sha256:3b23343a7f7d00ed8a91338b2f28bd3c78779d8c345076f9d368a792ac24325c
   restart: unless-stopped
   volumes:
     - exit-node-data:/tmp
-  networks:
-    - rpch-test-net
   command: "node apps/exit-node/build/index.js"
 volumes:
   postgres-data:
   exit-node-data:
-networks:
-  rpch-test-net:
-    name: sandbox
-    driver: bridge
 services:
   db:
     image: postgres:14.1-alpine
@@ -22,9 +19,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     ports:
-      - "5432:5432"
-    networks:
-      - rpch-test-net
+      - "${DB_PORT}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
   funding-service:
@@ -33,15 +28,13 @@ services:
       - db
     restart: unless-stopped
     ports:
-      - "3010:3010"
-    networks:
-      - rpch-test-net
+      - "${FUNDING_SERVICE_PORT}:${FUNDING_SERVICE_PORT}"
     environment:
       - DEBUG=${DEBUG}
-      - PORT=3010
+      - PORT=${FUNDING_SERVICE_PORT}
       - SECRET_KEY=${SECRET_KEY}
       - WALLET_PRIV_KEY=${FUNDING_SERVICE_PRIVATE_KEY}
-      - DB_CONNECTION_URL=postgresql://postgres:postgres@db:5432
+      - DB_CONNECTION_URL=postgresql://postgres:postgres@db:${DB_PORT}
       - FORCE_CHAIN_ID=31337
       - FORCE_RPC_URL=${RPC_PROVIDER}
       - FORCE_SMART_CONTRACT_ADDRESS=${FORCE_SMART_CONTRACT_ADDRESS}
@@ -51,63 +44,65 @@ services:
       - db
     restart: unless-stopped
     ports:
-      - "3020:3020"
-    networks:
-      - rpch-test-net
+      - "${DISCOVERY_PLATFORM_PORT}:${DISCOVERY_PLATFORM_PORT}"
     environment:
       - DEBUG=${DEBUG}
-      - PORT=3020
+      - PORT=${DISCOVERY_PLATFORM_PORT}
       - SECRET_KEY=${SECRET_KEY}
-      - DB_CONNECTION_URL=postgresql://postgres:postgres@db:5432
-      - FUNDING_SERVICE_URL=http://funding-service:3010
+      - DB_CONNECTION_URL=postgresql://postgres:postgres@db:${DB_PORT}
+      - FUNDING_SERVICE_URL=http://funding-service:${FUNDING_SERVICE_PORT}
       - SKIP_CHECK_COMMITMENT=${SKIP_CHECK_COMMITMENT}
   manager:
+    !!merge <<: *hostaccess
     image: europe-west6-docker.pkg.dev/rpch-375921/rpch/manager@sha256:ed7bd24fd4004a4889273cfbb559e4d461bcb15bfc6daac6abd519267c95d6b2
     restart: unless-stopped
     ports:
-      - "3030:3030"
-    networks:
-      - rpch-test-net
+      - "${MANAGER_PORT}:${MANAGER_PORT}"
     environment:
       - DEBUG=${DEBUG}
-      - PORT=3030
+      - PORT=${MANAGER_PORT}
   exit-1:
+    !!merge <<: *hostaccess
     !!merge <<: *exit
     environment:
-      - HOPRD_API_ENDPOINT=http://pluto:13301
+      - HOPRD_API_ENDPOINT=http://host.docker.internal:13301
       - DEBUG=${DEBUG:-"rpch*"}
       - HOPRD_API_TOKEN=${HOPRD_API_TOKEN}
       - RPCH_PRIVATE_KEY=${EXIT_NODE_PRIV_KEY_1}
-    entrypoint: ["/bin/wait-for", "http://${HOPRD_API_TOKEN}@pluto:13301/api/v2/account/addresses", "-t", "300", "--", "/sbin/tini", "--"]
+    entrypoint: ["/bin/wait-for", "http://${HOPRD_API_TOKEN}@host.docker.internal:13301/api/v2/account/addresses", "-t", "300", "--", "/sbin/tini", "--"]
   exit-2:
+    !!merge <<: *hostaccess
     !!merge <<: *exit
     environment:
-      - HOPRD_API_ENDPOINT=http://pluto:13302
+      - HOPRD_API_ENDPOINT=http://host.docker.internal:13302
       - DEBUG=${DEBUG:-"rpch*"}
       - HOPRD_API_TOKEN=${HOPRD_API_TOKEN}
       - RPCH_PRIVATE_KEY=${EXIT_NODE_PRIV_KEY_2}
-    entrypoint: ["/bin/wait-for", "http://${HOPRD_API_TOKEN}@pluto:13302/api/v2/account/addresses", "-t", "300", "--", "/sbin/tini", "--"]
+    entrypoint: ["/bin/wait-for", "http://${HOPRD_API_TOKEN}@host.docker.internal:13302/api/v2/account/addresses", "-t", "300", "--", "/sbin/tini", "--"]
   exit-3:
+    !!merge <<: *hostaccess
     !!merge <<: *exit
     environment:
-      - HOPRD_API_ENDPOINT=http://pluto:13303
+      - HOPRD_API_ENDPOINT=http://host.docker.internal:13303
       - DEBUG=${DEBUG:-"rpch*"}
       - HOPRD_API_TOKEN=${HOPRD_API_TOKEN}
       - RPCH_PRIVATE_KEY=${EXIT_NODE_PRIV_KEY_3}
-    entrypoint: ["/bin/wait-for", "http://${HOPRD_API_TOKEN}@pluto:13303/api/v2/account/addresses", "-t", "300", "--", "/sbin/tini", "--"]
+    entrypoint: ["/bin/wait-for", "http://${HOPRD_API_TOKEN}@host.docker.internal:13303/api/v2/account/addresses", "-t", "300", "--", "/sbin/tini", "--"]
   exit-4:
+    !!merge <<: *hostaccess
     !!merge <<: *exit
     environment:
-      - HOPRD_API_ENDPOINT=http://pluto:13304
+      - HOPRD_API_ENDPOINT=http://host.docker.internal:13304
       - DEBUG=${DEBUG:-"rpch*"}
       - HOPRD_API_TOKEN=${HOPRD_API_TOKEN}
       - RPCH_PRIVATE_KEY=${EXIT_NODE_PRIV_KEY_4}
-    entrypoint: ["/bin/wait-for", "http://${HOPRD_API_TOKEN}@pluto:13304/api/v2/account/addresses", "-t", "300", "--", "/sbin/tini", "--"]
+    entrypoint: ["/bin/wait-for", "http://${HOPRD_API_TOKEN}@host.docker.internal:13304/api/v2/account/addresses", "-t", "300", "--", "/sbin/tini", "--"]
   exit-5:
+    !!merge <<: *hostaccess
     !!merge <<: *exit
     environment:
-      - HOPRD_API_ENDPOINT=http://pluto:13305
+      - HOPRD_API_ENDPOINT=http://host.docker.internal:13305
       - DEBUG=${DEBUG:-"rpch*"}
       - HOPRD_API_TOKEN=${HOPRD_API_TOKEN}
       - RPCH_PRIVATE_KEY=${EXIT_NODE_PRIV_KEY_5}
-    entrypoint: ["/bin/wait-for", "http://${HOPRD_API_TOKEN}@pluto:13305/api/v2/account/addresses", "-t", "300", "--", "/sbin/tini", "--"]
+    entrypoint: ["/bin/wait-for", "http://${HOPRD_API_TOKEN}@host.docker.internal:13305/api/v2/account/addresses", "-t", "300", "--", "/sbin/tini", "--"]
