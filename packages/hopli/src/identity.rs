@@ -42,28 +42,13 @@ pub struct IdentityArgs {
     password: PasswordArgs,
 
     #[clap(
-        help = "Path to the directory that stores identity files",
+        help = "Filepath to the identity file",
         long,
         short,
-        default_value = "/tmp/hopli"
+        default_value = "/tmp/hopli/identity.id"
     )]
-    directory: String,
+    identity_filepath: String
 
-    #[clap(
-        help = "Prefix of the identity file to create/read",
-        long,
-        default_value = "node_"
-    )]
-    name: Option<String>,
-
-    #[clap(
-        help = "Number of identities to be generated, e.g. 1",
-        long,
-        short,
-        value_parser = RangedU64ValueParser::<u32>::new().range(1..),
-        default_value_t = 1
-    )]
-    number: u32,
 }
 
 impl IdentityArgs {
@@ -72,9 +57,7 @@ impl IdentityArgs {
         let IdentityArgs {
             action,
             password,
-            directory,
-            name,
-            number,
+            identity_filepath
         } = self;
 
         // check if password is provided
@@ -87,28 +70,15 @@ impl IdentityArgs {
 
         match action {
             IdentityActionType::Create => {
-                for _n in 1..=number {
-                    // build file name
-                    let id_name = match name {
-                        Some(ref provided_name) => Some(
-                            provided_name.to_owned()
-                                + &SystemTime::now()
-                                    .duration_since(UNIX_EPOCH)?
-                                    .as_secs()
-                                    .to_string(),
-                        ),
-                        None => None,
-                    };
 
-                    match create_identity(&directory, &pwd, &id_name) {
-                        Ok(addr) => addresses.push(addr),
-                        Err(_) => return Err(HelperErrors::UnableToCreateIdentity),
-                    }
+                match create_identity(&identity_filepath, &pwd) {
+                    Ok(addr) => addresses.push(addr),
+                    Err(_) => return Err(HelperErrors::UnableToCreateIdentity),
                 }
             }
             IdentityActionType::Read => {
                 // read ids
-                match read_identities(&directory, &pwd, &name) {
+                match read_identities(&identity_filepath, &pwd) {
                     Ok(addrs) => addresses.extend(addrs),
                     Err(_) => return Err(HelperErrors::UnableToReadIdentity),
                 }
