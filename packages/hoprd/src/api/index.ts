@@ -9,7 +9,7 @@ import { WebSocketServer } from 'ws'
 
 const debugLog = debug('hoprd:api')
 
-export default function setupAPI(
+export default async function setupAPI(
   node: Hopr,
   logs: LogStream,
   stateOps: StateOps,
@@ -19,12 +19,12 @@ export default function setupAPI(
     apiPort: number
     apiToken?: string
   }
-): () => void {
+): Promise<() => void> {
   debugLog('Enabling Rest API v2 and WS API v2')
   const service = express()
   const server = http.createServer(service)
 
-  apiV2.setupRestApi(service, '/api/v2', node, stateOps, options)
+  await apiV2.setupRestApi(service, '/api/v2', node, stateOps, options)
   apiV2.setupWsApi(server, new WebSocketServer({ noServer: true }), node, logs, options)
 
   return function listen() {

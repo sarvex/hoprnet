@@ -985,6 +985,7 @@ __metadata:
     semver: 7.3.7
     sinon: 12.0.1
     supertest: ^6.2.2
+    superwstest: ^2.0.3
     swagger-ui-express: 4.6.0
     trace-unhandled: 2.0.1
     ts-node: ^10.9.1
@@ -2450,7 +2451,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/supertest@npm:^2.0.11":
+"@types/supertest@npm:<7, @types/supertest@npm:^2.0.11":
   version: 2.0.12
   resolution: "@types/supertest@npm:2.0.12"
   dependencies:
@@ -2483,7 +2484,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/ws@npm:^8.5.4":
+"@types/ws@npm:7.x || 8.x, @types/ws@npm:^8.5.4":
   version: 8.5.4
   resolution: "@types/ws@npm:8.5.4"
   dependencies:
@@ -10893,6 +10894,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"superwstest@npm:^2.0.3":
+  version: 2.0.3
+  resolution: "superwstest@npm:2.0.3"
+  dependencies:
+    "@types/supertest": <7
+    "@types/ws": 7.x || 8.x
+    ws: 7.x || 8.x
+  peerDependencies:
+    supertest: "*"
+  peerDependenciesMeta:
+    supertest:
+      optional: true
+  checksum: 56d408a819009cdbf32655b51605de903f2502821fb6dc04fd0e6629649b4242a8acc3f9f569d0c365d3e49c8342ca1bcfbadbc2289f7091538df1470f21b21d
+  languageName: node
+  linkType: hard
+
 "supports-color@npm:8.1.1":
   version: 8.1.1
   resolution: "supports-color@npm:8.1.1"
@@ -11857,6 +11874,21 @@ __metadata:
     utf-8-validate:
       optional: true
   checksum: 3a990b32ed08c72070d5e8913e14dfcd831919205be52a3ff0b4cdd998c8d554f167c9df3841605cde8b11d607768cacab3e823c58c96a5c08c987e093eb767a
+  languageName: node
+  linkType: hard
+
+"ws@npm:7.x || 8.x":
+  version: 8.13.0
+  resolution: "ws@npm:8.13.0"
+  peerDependencies:
+    bufferutil: ^4.0.1
+    utf-8-validate: ">=5.0.2"
+  peerDependenciesMeta:
+    bufferutil:
+      optional: true
+    utf-8-validate:
+      optional: true
+  checksum: 53e991bbf928faf5dc6efac9b8eb9ab6497c69feeb94f963d648b7a3530a720b19ec2e0ec037344257e05a4f35bd9ad04d9de6f289615ffb133282031b18c61c
   languageName: node
   linkType: hard
 

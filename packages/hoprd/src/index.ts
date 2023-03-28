@@ -275,7 +275,9 @@ async function main() {
     node.once('hopr:monitoring:start', async () => {
       // 3. start all monitoring services, and continue with the rest of the setup.
 
-      const startApiListen = setupAPI(
+      // start API server only if API flag is true
+      if (argv.api) {
+      await setupAPI(
         node,
         logs,
         { getState, setState },
@@ -286,8 +288,7 @@ async function main() {
           apiToken: argv.disable_api_authentication ? null : argv.api_token
         }
       )
-      // start API server only if API flag is true
-      if (argv.api) startApiListen()
+      }
 
       if (argv.health_check) {
         setupHealthcheck(node, logs, argv.health_check_host, argv.health_check_port)

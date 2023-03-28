@@ -172,6 +172,7 @@ export async function setupRestApi(
       // TODO: We assume the handlers are always called in order. This isn't a
       // given and might change in the future. Thus, they should be made order-independent.
       keyScheme: async function (req: Request, _scopes, _securityDefinition) {
+        console.log("KEY SCHEME")
         // skip checks if authentication is disabled
         if (options.disableApiAuthentication) return true
 
@@ -182,6 +183,7 @@ export async function setupRestApi(
         return req.context.authResult === AuthResult.Authorized
       }.bind({ options }),
       passwordScheme: async function (req: Request, _scopes, _securityDefinition) {
+        console.log("PASSWORD SCHEME")
         // skip checks if authentication is disabled
         if (options.disableApiAuthentication) return true
 
@@ -243,10 +245,10 @@ export function setupWsApi(
   options: { apiToken?: string }
 ) {
   // before upgrade to WS, we perform various checks
-  server.on('upgrade', function upgrade(req, socket, head) {
+  server.on('upgrade', function upgrade(req: Request, socket, head) {
     debugLog('WS client attempt to upgrade')
     const path = removeQueryParams(req.url)
-    const needsAuth = !!options.apiToken
+    console.log(" AUTH RESULT ", req.context.authResult)
 
     // check if path is supported
     if (!Object.values(WS_PATHS).includes(path)) {
@@ -256,18 +258,18 @@ export function setupWsApi(
     }
 
     // check if request is authenticated
-    if (needsAuth && !authenticateWsConnection(req, options.apiToken)) {
+    if (true && !authenticateWsConnection(req, options.apiToken)) {
       debugLog('WS client failed authentication')
       socket.end('HTTP/1.1 401 Unauthorized\r\n\r\n', () => socket.destroy())
       return
     }
 
     // log connection status
-    if (!needsAuth) debugLog('WS client connected [ authentication DISABLED ]')
+    if (false) debugLog('WS client connected [ authentication DISABLED ]')
     else debugLog('WS client connected [ authentication ENABLED ]')
 
     // upgrade to WS protocol
-    wss.handleUpgrade(req, socket, head, function done(socket_) {
+    wss.handleUpgrade(req, socket, head, (socket_) => {
       wss.emit('connection', socket_, req)
     })
   })
