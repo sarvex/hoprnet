@@ -277,17 +277,17 @@ async function main() {
 
       // start API server only if API flag is true
       if (argv.api) {
-      await setupAPI(
-        node,
-        logs,
-        { getState, setState },
-        {
-          disableApiAuthentication: argv.disable_api_authentication,
-          apiHost: argv.api_host,
-          apiPort: argv.api_port,
-          apiToken: argv.disable_api_authentication ? null : argv.api_token
-        }
-      )
+        await setupAPI(
+          node,
+          logs,
+          { getState, setState },
+          {
+            disableApiAuthentication: argv.disable_api_authentication,
+            apiHost: argv.api_host,
+            apiPort: argv.api_port,
+            apiToken: argv.disable_api_authentication ? null : argv.api_token
+          }
+        )
       }
 
       if (argv.health_check) {

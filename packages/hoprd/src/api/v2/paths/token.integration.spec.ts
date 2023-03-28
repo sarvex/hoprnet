@@ -51,25 +51,25 @@ describe('GET /token', function () {
 
   it('should succeed when using token with correct capability', async function () {
     // create token with correct capability
-    const caps = [{ endpoint: 'tokensCreate' }, {endpoint: 'tokensGetToken'}]
+    const caps = [{ endpoint: 'tokensCreate' }, { endpoint: 'tokensGetToken' }]
     const token1 = await createToken(node.db, undefined, caps)
     await storeToken(node.db, token1)
 
     const res1 = await request(service).get('/api/v2/token').set('x-auth-token', token1.id)
     assert.equal(res1.status, 200)
     expect(res1).to.satisfyApiSpec
-    assert(res1.body.capabilities, "capabilities should not be missing")
-    assert.equal((res1.body.capabilities.length), 2, "capabilities should have 2 entries")
-    assert(!!!res1.body.valid_until, "valid_until should be missing")
+    assert(res1.body.capabilities, 'capabilities should not be missing')
+    assert.equal(res1.body.capabilities.length, 2, 'capabilities should have 2 entries')
+    assert(!!!res1.body.valid_until, 'valid_until should be missing')
 
-    const token2 = await createToken(node.db, undefined, caps, "", 1000)
+    const token2 = await createToken(node.db, undefined, caps, '', 1000)
     await storeToken(node.db, token2)
 
     const res2 = await request(service).get('/api/v2/token').set('x-auth-token', token2.id)
     assert.equal(res2.status, 200)
     expect(res2).to.satisfyApiSpec
-    assert(res2.body.capabilities, "capabilities should not be missing")
-    assert.equal((res2.body.capabilities.length), 2, "capabilities should have 2 entries")
-    assert(!!res2.body.valid_until, "valid_until should not be missing")
+    assert(res2.body.capabilities, 'capabilities should not be missing')
+    assert.equal(res2.body.capabilities.length, 2, 'capabilities should have 2 entries')
+    assert(!!res2.body.valid_until, 'valid_until should not be missing')
   })
 })

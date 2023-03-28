@@ -30,8 +30,8 @@ describe('GET /messages/websocket', function () {
   })
 
   after((done) => {
-    service.close(done);
-  });
+    service.close(done)
+  })
 
   it('should not be able to connect with incorrect capabilities', async () => {
     const flow = request(service).ws(WS_PATH).expectConnectionError(401)
@@ -44,9 +44,7 @@ describe('GET /messages/websocket', function () {
     const token = await createToken(node.db, undefined, caps)
     await storeToken(node.db, token)
 
-    const flow = request(service).ws(WS_PATH)
-      .set({'x-auth-token': token.id})
-    .close()
+    const flow = request(service).ws(WS_PATH).set({ 'x-auth-token': token.id }).close()
 
     return flow
   })

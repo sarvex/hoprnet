@@ -172,7 +172,7 @@ export async function setupRestApi(
       // TODO: We assume the handlers are always called in order. This isn't a
       // given and might change in the future. Thus, they should be made order-independent.
       keyScheme: async function (req: Request, _scopes, _securityDefinition) {
-        console.log("KEY SCHEME")
+        console.log('KEY SCHEME')
         // skip checks if authentication is disabled
         if (options.disableApiAuthentication) return true
 
@@ -183,7 +183,7 @@ export async function setupRestApi(
         return req.context.authResult === AuthResult.Authorized
       }.bind({ options }),
       passwordScheme: async function (req: Request, _scopes, _securityDefinition) {
-        console.log("PASSWORD SCHEME")
+        console.log('PASSWORD SCHEME')
         // skip checks if authentication is disabled
         if (options.disableApiAuthentication) return true
 
@@ -248,7 +248,7 @@ export function setupWsApi(
   server.on('upgrade', function upgrade(req: Request, socket, head) {
     debugLog('WS client attempt to upgrade')
     const path = removeQueryParams(req.url)
-    console.log(" AUTH RESULT ", req.context.authResult)
+    console.log(' AUTH RESULT ', req.context.authResult)
 
     // check if path is supported
     if (!Object.values(WS_PATHS).includes(path)) {
