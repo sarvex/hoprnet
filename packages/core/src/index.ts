@@ -910,8 +910,14 @@ class Hopr extends EventEmitter {
    * @param destination PeerId of the destination
    * @param intermediatePath optional set path manually
    * @param hops optional number of required intermediate nodes
+   * @returns hex representation of ack challenge
    */
-  public async sendMessage(msg: Uint8Array, destination: PeerId, intermediatePath?: PublicKey[], hops?: number) {
+  public async sendMessage(
+    msg: Uint8Array,
+    destination: PeerId,
+    intermediatePath?: PublicKey[],
+    hops?: number
+  ): Promise<string> {
     if (this.status != 'RUNNING') {
       throw new Error('Cannot send message until the node is running')
     }
