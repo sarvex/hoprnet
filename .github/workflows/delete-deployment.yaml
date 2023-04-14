@@ -48,7 +48,7 @@ jobs:
           echo "NETWORK=${network}" >> $GITHUB_ENV
           echo "NETWORK_DASH=${network/_/-}" >> $GITHUB_ENV
           echo git checkout -b undeployments/${network/_/-}-pr-${{ github.event.pull_request.number }}
-          ./apps/definitions/hoprd-nodes-app/sync.sh deploy -e ${GITOPS_ENVIRONMENT} -n ${network} -pr ${{ github.event.pull_request.number }}
+          ./apps/definitions/hoprd-nodes-app/sync.sh undeploy -e ${GITOPS_ENVIRONMENT} -pr ${{ github.event.pull_request.number }}
         working-directory: "./gitops"
       - name: Create Undeploy Pull Request
         uses: peter-evans/create-pull-request@v5
