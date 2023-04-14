@@ -61,4 +61,4 @@ jobs:
           body: "This pull request contains the deletion of a ClusterHoprd in Kubernetes used for testing PR #${{ github.event.pull_request.number }}"
           labels: ClusterHoprd
           assignees: ${{ github.event.pull_request.user.login }}
-          reviewers: hopr-version-bot
+          # reviewers: hopr-version-bot
