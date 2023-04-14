@@ -11,6 +11,7 @@
 
 [package]
 edition = "2018"
+
 name = "windows_aarch64_gnullvm"
 version = "0.48.0"
 authors = ["Microsoft"]
