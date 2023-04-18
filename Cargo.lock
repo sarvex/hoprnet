@@ -5566,6 +5566,7 @@ dependencies = [
  "js-sys",
  "serde",
  "tempfile 3.5.0",
+ "thiserror",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
